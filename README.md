@@ -30,9 +30,9 @@ python main.py
 After run `server.py` and `main.py`
 
 1. Predict:
-* `main.py` request env state (84*84*4) to `server.py`
+* `main.py` request env state (84x84x4) to `server.py`
 * `server.py` response predict action ,which is random generated, to  `main.py`
 
 2. Train:
-* `main.py` request env state (84*84*4), reward, action   to `server.py`
-* `server.py` save the state (84*84*4) to train/
+* `main.py` request env state (84x84x4), reward, action   to `server.py`
+* `server.py` save the state (84x84x4) to train/
