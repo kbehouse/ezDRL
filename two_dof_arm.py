@@ -14,7 +14,7 @@ from arm_env import ArmEnv
 MAX_EP_STEP = 300
 GLOBAL_EP = 0
 
-class RobotArm:
+class TwoDofArm:
     """ Init Client """
     def __init__(self, client_id):
         
@@ -66,4 +66,4 @@ class RobotArm:
 
 if __name__ == '__main__':
     for i in range(4):
-        RobotArm('Client-%d' % i ) 
+        TwoDofArm('Client-%d' % i ) 

@@ -11,8 +11,8 @@ class HistoryBuffer():
         # self.image_shape = image_shape
         self.expend_axis = len(image_shape)
         self.image_shape = list(image_shape)+[1]
-        print('self.expend_axis={}'.format(self.expend_axis) )
-        print('np.shape(image_shape)={}'.format(np.shape(self.image_shape)) )
+        # print('self.expend_axis={}'.format(self.expend_axis) )
+        # print('np.shape(image_shape)={}'.format(np.shape(self.image_shape)) )
         self.clear()
 
     def clear(self) :

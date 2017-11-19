@@ -18,10 +18,10 @@ pip install -r requirements.txt
 python server.py
 ```
 
-2. Run the main.py (You could update this to your need) 
+2. Run the two_dof_arm (You could update this to your need) 
 
 ```
-python main.py
+python two_dof_arm.py
 ```
 
 
@@ -36,3 +36,7 @@ After run `server.py` and `main.py`
 2. Train:
 * `main.py` request env state (84x84x4), reward, action   to `server.py`
 * `server.py` save the state (84x84x4) to train/
+
+## Acknowledgement
+
+1. [MorvanZhou RL Class](https://github.com/MorvanZhou/Reinforcement-learning-with-tensorflow)
