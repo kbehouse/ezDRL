@@ -96,7 +96,7 @@ class Worker(Thread):
         if NET_TYPE == "A3C":
             # print('train buffer_s.shape={}, type(buffer_s)={}'.format(np.shape(buffer_s), type(buffer_s)))
             # print('train next_state.shape={}, type(next_state)={}'.format(np.shape(next_state), type(next_state)))
-
+            # next_state (7,)  ,  next_state[np.newaxis, :] (1, 7)
             if done:
                 v_s_ = 0   # terminal
             else:

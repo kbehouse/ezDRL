@@ -10,9 +10,12 @@
 import os
 from client import Client
 from arm_env import ArmEnv
-
+import time
 MAX_EP_STEP = 300
 GLOBAL_EP = 0
+
+
+START_TIME = time.time()
 
 class TwoDofArm:
     """ Init Client """
@@ -43,7 +46,7 @@ class TwoDofArm:
             return self.state
 
     def train(self,action):
-        global GLOBAL_EP
+        global GLOBAL_EP, START_TIME
         self.state, reward, self.done, _  = self.env.step(action)
         self.ep_t += 1
         self.ep_r += reward
@@ -54,11 +57,10 @@ class TwoDofArm:
 
 
         if self.done:
-            # if len(GLOBAL_RUNNING_R) == 0:  # record running episode reward
-            #     GLOBAL_RUNNING_R.append(ep_r)
-            # else:
-            #     GLOBAL_RUNNING_R.append(0.9 * GLOBAL_RUNNING_R[-1] + 0.1 * ep_r)
-            print('{} ->  EP: {}, STEP: {}, EP_R: {}'.format(self.client.client_id,  GLOBAL_EP, self.ep_t, self.ep_r))
+            use_secs = time.time() - START_TIME
+            time_str = '%3dh%2dm%2ds' % (use_secs/3600, (use_secs%3600)/60, use_secs % 60 )
+            print('%s -> EP:%4d, STEP:%3d, EP_R:%8.2f, t:%s' % (self.client.client_id,  GLOBAL_EP, self.ep_t, self.ep_r, time_str))
+                
             
             GLOBAL_EP += 1
 
