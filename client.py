@@ -12,11 +12,13 @@ from threading import Thread
 
 import cv2
 import zmq
-import scipy.misc
+
 
 import numpy as np
 from history_buffer import HistoryBuffer
 from utility import *
+# from config import *
+import config
 
 # Connect Parameter setting 
 REQUEST_TIMEOUT = 2500
@@ -26,8 +28,6 @@ FRONTEND_ADR = "tcp://127.0.0.1:5555"
 SEND_TYPE_PREDICT   = 1
 SEND_TYPE_TRAIN     = 2
 
-FRAMES_FOR_STATE = 4
-IMAGE_SIZE = (84,84)
 
 class Client(Thread):
     """ Init Client """
@@ -46,11 +46,19 @@ class Client(Thread):
         # Init other
         self.sequence = 0
         self.retries_left = REQUEST_RETRIES
-
-        self.state_shape = list(IMAGE_SIZE)+[1] #[84,84,1]
+        
         self.send_type = SEND_TYPE_PREDICT
-        self.hist_bufs = HistoryBuffer(self.preprocess,self.state_shape,FRAMES_FOR_STATE) 
+        self.hist_bufs = HistoryBuffer(config.STATE_SHAPE, config.STATE_FRAMES) 
         self.state = []
+        self.next_state = None
+        self.frame_count = 0
+
+        self.state_buf = []
+        self.reward_buf = []
+        self.action_buf = []
+
+
+        
 
     def __del__(self):
         self.context.term()  
@@ -91,23 +99,12 @@ class Client(Thread):
         if not reply_seq_id:
             return False
         if int(reply_seq_id) == self.sequence:
-            print("I: Server replied OK (%s)" % reply_seq_id)
+            # print("I: Server replied OK (%s)" % reply_seq_id)
             self.retries_left = REQUEST_RETRIES
             return True
         else:
             print("E: Malformed reply from server: %s" % reply_seq_id)
             return False
-
-    def preprocess(self, state_im):
-        # gray_im = cv2.cvtColor(state_im, cv2.COLOR_BGR2GRAY)
-        # im_84x84= cv2.resize(gray_im, IMAGE_SIZE) 
-        # return im_84x84
-
-        y = 0.2126 * state_im[:, :, 0] + 0.7152 * state_im[:, :, 1] + 0.0722 * state_im[:, :, 2]
-        y = y.astype(np.uint8)
-        resized = scipy.misc.imresize(y, IMAGE_SIZE)
-
-        return np.expand_dims(resized.astype(np.float32),axis=2)
 
     def send_predict(self): 
         # prepare sequence & cmd
@@ -119,13 +116,11 @@ class Client(Thread):
         if  len(self.state)<=0 : #self.state == None:
             state_raw = self.state_fn()
             
-            print("I: send_predict() say Get state_raw.shape={}".\
-                format(np.array(state_raw).shape))
-
-            self.state = self.hist_bufs.add(state_raw)
-
-            print("I: send_predict() say Get state_raw.shape: {}, send state.shape: {}".\
-                format(state_raw.shape, self.state.shape))
+            # self.state = self.hist_bufs.add(state_raw)
+            self.state = state_raw
+            self.state_buf.append(self.state)
+            # print("I: send_predict() say Get state_raw.shape: {}, send state.shape: {}".\
+                # format(state_raw.shape, self.state.shape))
 
 
         # im_8484 = self.pre_process(state)
@@ -142,13 +137,26 @@ class Client(Thread):
         #check sequence
         check_result = self.check_reply_seq_id(reply_seq_id)
 
-        print('I: send_predict_done() say check_result={}, reply_seq_id={}, reply_action={}'.format(check_result,reply_seq_id,reply_action) )            
+        # print('I: send_predict_done() say check_result={}, reply_seq_id={}, reply_action={}'.format(check_result,reply_seq_id,reply_action) )            
 
 
         if check_result:
             self.action  = reply_action
-            self.reward, self.done = self.train_fn(self.action)
-            self.send_type = SEND_TYPE_TRAIN
+            self.action_buf.append(self.action)
+            # self.send_type = SEND_TYPE_TRAIN
+
+            # Train
+            self.reward, self.done, self.next_state = self.train_fn(self.action)
+            self.reward_buf.append(self.reward)
+            self.frame_count += 1
+
+            self.state = []
+
+            # if self.frame_count < config.STATE_FRAMES, continue to predict
+            if self.frame_count >= config.STATE_FRAMES:
+                self.send_type = SEND_TYPE_TRAIN
+
+
             return True
         else:
             print('W: send_predict_done() say check_result = False!!')
@@ -160,22 +168,29 @@ class Client(Thread):
         cmd = TRAIN_CMD.encode('utf-8')
         # Read Image 
         # im = cv2.imread(self.dir_name + '/' +self.pic_name)
-        msg = dumps( (seq_str, cmd, self.state, self.reward, self.action) )
+        msg = dumps( (seq_str, cmd, self.state_buf, self.action_buf, self.reward_buf, self.next_state,  self.done) )
+            
         # Send data
-        print("I: send_train_data()  cmd = (%s), seq (%s) " % (cmd,seq_str) )
+        # print("I: send_train_data()  cmd = (%s), seq (%s) " % (cmd,seq_str) )
         self.client.send( msg,copy=False)
         # self.client.send_multipart( msg,copy=False)
        
     def send_train_data_done(self, recv):
         reply_seq_id = loads(recv)
-        print('I: send_train_data_done() say reply_seq_id={}'.format(reply_seq_id) )            
+        # print('I: send_train_data_done() say reply_seq_id={}'.format(reply_seq_id) )            
         #check sequence
         check_result = self.check_reply_seq_id(reply_seq_id)
         if check_result:
             self.send_type = SEND_TYPE_PREDICT
-            self.state = []
-            self.reward = None
-            self.action = None
+            # self.state = []
+            # self.reward = None
+            # self.action = None
+            
+            self.frame_count = 0
+            self.reward_buf = []
+            self.state_buf  = []
+            self.action_buf = []
+
             return True
         else:
             print('W: send_train_data_done() say check_result = False!!')

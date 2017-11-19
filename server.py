@@ -5,22 +5,30 @@
 #   Author:  Kartik, Chen  <kbehouse(at)gmail(dot)com>,
 #          
 
-
+import sys
 import zmq
 import multiprocessing
+import tensorflow as tf
 
 from worker import Worker
 from utility import *
-import sys
+from ACNet import ACNet
+from config import NET_OUTPUT_GRAPH, NET_MAIN_SCOPE
+
 FRONTEND_ADR = "tcp://*:5555"
 BACKEND_ADR  = "tcp://*:5556"
 
-NBR_WORKERS = 3
-
-
-
 LRU_READY = "\x01"
 
+NBR_WORKERS = 4
+
+
+# DL Init
+sess = tf.Session()
+main_net = ACNet(sess, NET_MAIN_SCOPE)  
+
+
+# Connet Init
 context = zmq.Context(1)
 
 frontend = context.socket(zmq.ROUTER) # ROUTER
@@ -35,25 +43,32 @@ poll_both = zmq.Poller()
 poll_both.register(frontend, zmq.POLLIN)
 poll_both.register(backend, zmq.POLLIN)
 
+# 'Can' worker list
 workers = []
-
-
-
-# Start background work tasks
-# def start(task, *args):
-#     process = multiprocessing.Process(target=task, args=args)
-#     process.daemon = True
-#     process.start()
-# for i in range(NBR_WORKERS):
-#     start(worker_task, i)
-
-
+# 'All' worker list
 worker_list = []
+
 for i in range(NBR_WORKERS):
-    w = Worker(i)
-    w.start()
+    worker_id = u"Worker-{}".format(i).encode("ascii")
+    w = Worker(sess, worker_id, main_net)
     worker_list.append(w)
 
+# DL Init 2
+COORD = tf.train.Coordinator()
+sess.run(tf.global_variables_initializer())
+
+
+for w in worker_list:
+    w.start()
+
+
+
+if NET_OUTPUT_GRAPH:
+    import os, shutil
+    from config import NET_LOG_DIR
+    if os.path.exists(NET_LOG_DIR):
+        shutil.rmtree(NET_LOG_DIR)
+    tf.summary.FileWriter(NET_LOG_DIR, sess.graph)
 
 while True:
     	

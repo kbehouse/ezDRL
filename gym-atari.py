@@ -11,35 +11,47 @@ import cv2
 import os
 from client import Client
 import gym
+import scipy.misc
+import numpy as np
+from config import STATE_SHAPE
+
+Atari_Game_Name = 'Breakout-v0'
 
 class Atari:
     """ Init Client """
-    def __init__(self, game_name):
+    def __init__(self, client_id):
         self.done = True
 
-
-        self.env = gym.make(game_name) 
+        self.env = gym.make(Atari_Game_Name) 
         self.env.reset()
-        self.client = Client('Client-1')
-        # self.client.set_action_size(self.env.action_space.n)   #ex: the Atari Breackout action size is 4
+        self.client = Client(client_id)
         self.client.set_state(self.get_state)
         self.client.set_train(self.train)
         self.client.start()
 
-        
-
     def get_state(self):
-        print('in State, self.done={}'.format(self.done))
         if self.done:
             self.done = False
-            return self.env.reset()
+            s = self.env.reset()
         else:
-            return self.state
+            s = self.state
+
+        return self.state_preprocess(s)
 
     def train(self,action):
         self.state, reward, self.done, _ = self.env.step(action)
         return (reward, self.done)
 
+    
+    def state_preprocess(self,state_im):
+        y = 0.2126 * state_im[:, :, 0] + 0.7152 * state_im[:, :, 1] + 0.0722 * state_im[:, :, 2]
+        y = y.astype(np.uint8)
+        resized = scipy.misc.imresize(y, STATE_SHAPE)
+
+        return resized
+
+
 if __name__ == '__main__':
-   Atari('Breakout-v0') 
+    for i in range(5):
+        Atari('Client-%d' % i ) 
    
