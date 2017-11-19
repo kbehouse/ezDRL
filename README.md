@@ -25,17 +25,21 @@ python two_dof_arm.py
 ```
 
 
-## Version Note (v0.01)
+## Version Note (v0.02)
 
-After run `server.py` and `main.py`
+After run `server.py` and `two_dof_arm.py`
 
 1. Predict:
-* `main.py` request env state (84x84x4) to `server.py`
-* `server.py` response predict action ,which is random generated, to  `main.py`
+* `two_dof_arm.py` request env state (7,) to `server.py`
+* `server.py` response predict action to  `two_dof_arm.py`
 
 2. Train:
-* `main.py` request env state (84x84x4), reward, action   to `server.py`
-* `server.py` save the state (84x84x4) to train/
+* `two_dof_arm.py` send 5 steps env data to `server.py`
+
+   5  steps env data: state_buf (5,7) action_buf (5,1) reward_buf (5,1), next_state (7,),  done (value)
+
+
+* `server.py` workers train the parameter to `Main_Net`
 
 ## Acknowledgement
 
