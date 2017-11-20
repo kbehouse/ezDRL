@@ -22,107 +22,119 @@ LRU_READY = "\x01"
 
 NBR_WORKERS = 4
 
+class Server:
+    def __init__(self):
 
-# DL Init
-sess = tf.Session()
-main_net = ACNet(sess, NET_MAIN_SCOPE)  
+        # DL Init
+        self.sess = tf.Session()
+        self.main_net = ACNet(self.sess, NET_MAIN_SCOPE)  
 
+        self.worker_init()
+        self.connect_init()
 
-# Connet Init
-context = zmq.Context(1)
-
-frontend = context.socket(zmq.ROUTER) # ROUTER
-backend = context.socket(zmq.ROUTER) # ROUTER
-frontend.bind(FRONTEND_ADR) # For clients
-backend.bind(BACKEND_ADR)  # For workers
-
-poll_workers = zmq.Poller()
-poll_workers.register(backend, zmq.POLLIN)
-
-poll_both = zmq.Poller()
-poll_both.register(frontend, zmq.POLLIN)
-poll_both.register(backend, zmq.POLLIN)
-
-# 'Can' worker list
-workers = []
-# 'All' worker list
-worker_list = []
-
-for i in range(NBR_WORKERS):
-    worker_id = u"Worker-{}".format(i).encode("ascii")
-    w = Worker(sess, worker_id, main_net)
-    worker_list.append(w)
-
-# DL Init 2
-COORD = tf.train.Coordinator()
-sess.run(tf.global_variables_initializer())
-
-
-for w in worker_list:
-    w.start()
+        # DL Init 2
+        COORD = tf.train.Coordinator()
+        self.sess.run(tf.global_variables_initializer())
 
 
 
-if NET_OUTPUT_GRAPH:
-    import os, shutil
-    from config import NET_LOG_DIR
-    if os.path.exists(NET_LOG_DIR):
-        shutil.rmtree(NET_LOG_DIR)
-    tf.summary.FileWriter(NET_LOG_DIR, sess.graph)
+        self.check_output_graph()
 
-while True:
-    	
-    try:
-        if workers:
-            socks = dict(poll_both.poll())
-        else:
-            socks = dict(poll_workers.poll())
+    def connect_init(self):
+        # Connet Init
+        self.context = zmq.Context(1)
 
-    except KeyboardInterrupt:
-    #This won't catch KeyboardInterupt
-        print('KeyboardInterrupt Capture')
-        # stop_all = [w.close_connect() for w in worker_list]
-        for w in worker_list:
-            w.close_connect()
+        self.frontend = self.context.socket(zmq.ROUTER) # ROUTER
+        self.backend  = self.context.socket(zmq.ROUTER) # ROUTER
+        self.frontend.bind(FRONTEND_ADR) # For clients
+        self.backend.bind(BACKEND_ADR)  # For workers
 
-        poll_both.unregister(frontend)
-        poll_both.unregister(backend)
-        poll_workers.unregister(backend)
-        
-        frontend.close()
-        backend.close()
-        context.destroy(linger=0)
-        
-        context.term()
-        
-        
-        # def __del__(self):
-        
-        break
-    
+        self.poll_workers = zmq.Poller()
+        self.poll_workers.register(self.backend, zmq.POLLIN)
 
-    # Handle worker activity on backend
-    if socks.get(backend) == zmq.POLLIN:
-        # Use worker address for LRU routing
-        msg = backend.recv_multipart()
-        if not msg:
-            break
-        address = msg[0]
-        # print('Append address: ' + str(address))
-        workers.append(address)
-
-        # Everything after the second (delimiter) frame is reply
-        reply = msg[2:]
-
-        # Forward message to client if it's not a READY
-        if reply[0] != LRU_READY:
-            frontend.send_multipart(reply)
-
-    if socks.get(frontend) == zmq.POLLIN:
-        #  Get client request, route to first available worker
-        msg = frontend.recv_multipart()
-        request = [workers.pop(0), ''] + msg
-        backend.send_multipart(request)
+        self.poll_both = zmq.Poller()
+        self.poll_both.register(self.frontend, zmq.POLLIN)
+        self.poll_both.register(self.backend, zmq.POLLIN)
 
 
+    def worker_init(self):
+        # 'Can' worker list
+        self.workers = []
+        # 'All' worker list
+        self.worker_list = []
 
+        for i in range(NBR_WORKERS):
+            worker_id = u"Worker-{}".format(i).encode("ascii")
+            w = Worker(self.sess, worker_id, self.main_net)
+            self.worker_list.append(w)
+
+
+    def check_output_graph(self):
+        if NET_OUTPUT_GRAPH:
+            import os, shutil
+            from config import NET_LOG_DIR
+            if os.path.exists(NET_LOG_DIR):
+                shutil.rmtree(NET_LOG_DIR)
+            tf.summary.FileWriter(NET_LOG_DIR, self.sess.graph)
+
+
+    def start(self): 
+        for w in self.worker_list:
+            w.start()
+
+        while True:
+            try:
+                if self.workers:
+                    self.socks = dict(self.poll_both.poll())
+                else:
+                    self.socks = dict(self.poll_workers.poll())
+
+            except KeyboardInterrupt:
+            #This won't catch KeyboardInterupt
+                print('KeyboardInterrupt Capture')
+                # stop_all = [w.close_connect() for w in worker_list]
+                for w in self.worker_list:
+                    w.close_connect()
+
+                self.poll_both.unregister(self.frontend)
+                self.poll_both.unregister(self.backend)
+                self.poll_workers.unregister(self.backend)
+                
+                self.frontend.close()
+                self.backend.close()
+                self.context.destroy(linger=0)
+                
+                self.context.term()
+            
+                break
+            
+
+            # Handle worker activity on backend
+            if self.socks.get(self.backend) == zmq.POLLIN:
+                # Use worker address for LRU routing
+                msg = self.backend.recv_multipart()
+                if not msg:
+                    break
+                address = msg[0]
+                # print('Append address: ' + str(address))
+                self.workers.append(address)
+
+                # Everything after the second (delimiter) frame is reply
+                reply = msg[2:]
+
+                # Forward message to client if it's not a READY
+                if reply[0] != LRU_READY:
+                    self.frontend.send_multipart(reply)
+
+            if self.socks.get(self.frontend) == zmq.POLLIN:
+                #  Get client request, route to first available worker
+                msg = self.frontend.recv_multipart()
+                request = [self.workers.pop(0), ''] + msg
+                self.backend.send_multipart(request)
+
+
+
+if __name__ == '__main__':
+
+    s = Server()
+    s.start()
