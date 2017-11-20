@@ -24,6 +24,10 @@ python server.py
 python two_dof_arm.py
 ```
 
+## Version Note (v0.03)
+
+1. Support YAML to config all parameters, including DRL(or RL) methods
+2. Parameterize all .py
 
 ## Version Note (v0.02)
 
