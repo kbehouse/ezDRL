@@ -9,7 +9,7 @@ train/
 .vscode/
 log/
 Fail_Problem.txt
-
+log.txt
 #============== ignore from github default (by selecting python)=======# 
 # Byte-compiled / optimized / DLL files
 __pycache__/

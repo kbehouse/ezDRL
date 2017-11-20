@@ -46,25 +46,28 @@ class TwoDofArm:
             return self.state
 
     def train(self,action):
+        
+        self.state, self.reward, self.done, _  = self.env.step(action)
+
+        self.log_and_show()
+
+        return (self.reward, self.done, self.state)
+
+
+    def log_and_show(self):
         global GLOBAL_EP, START_TIME
-        self.state, reward, self.done, _  = self.env.step(action)
         self.ep_t += 1
-        self.ep_r += reward
-        if self.ep_t == MAX_EP_STEP - 1: self.done = True
+        self.ep_r += self.reward
 
         if self.client.client_id == 'Client-0':
             self.env.render()
-
 
         if self.done:
             use_secs = time.time() - START_TIME
             time_str = '%3dh%3dm%3ds' % (use_secs/3600, (use_secs%3600)/60, use_secs % 60 )
             print('%s -> EP:%4d, STEP:%3d, EP_R:%8.2f, t:%s' % (self.client.client_id,  GLOBAL_EP, self.ep_t, self.ep_r, time_str))
                 
-            
             GLOBAL_EP += 1
-
-        return (reward, self.done, self.state)
 
 if __name__ == '__main__':
     for i in range(4):

@@ -48,25 +48,28 @@ class Client(Thread):
         self.retries_left = REQUEST_RETRIES
         
         self.send_type = SEND_TYPE_PREDICT
-        self.hist_bufs = HistoryBuffer(config.STATE_SHAPE, config.STATE_FRAMES) 
+        
         self.state = []
         self.next_state = None
         self.frame_count = 0
 
+        # Note: 
+        # assume TRAIN_RUN_STEPSS = 5, STATE_SHAPE=(84,84), STATE_FRAMES = 4, ACTION_NUM = 4 
+        # state_hist_buf shape = (84, 84, 4)
+        # state_buf = (5, 84, 84, 4), reward_buf = (5, ), action_buf = (5, 4)
+        if config.STATE_FRAMES >= 2:
+            self.state_history = HistoryBuffer(config.STATE_SHAPE, config.STATE_FRAMES) 
+        
         self.state_buf = []
         self.reward_buf = []
         self.action_buf = []
 
-
-        
 
     def __del__(self):
         self.context.term()  
 
     def set_state(self, state_func):
         self.state_fn = state_func
-        self.hist_bufs.clear()
-
 
     def set_train(self, train_func):
         self.train_fn = train_func
@@ -111,26 +114,16 @@ class Client(Thread):
         seq_str = str(self.sequence).encode('utf-8')
         cmd = PREDICT_CMD.encode('utf-8')
         
-        # print('len(self.state)={}'.format( len(self.state)))
+        state_raw = self.state_fn()
+        self.state= self.state_history.add(state_raw) if config.STATE_FRAMES >= 2 else state_raw
+        self.state_buf.append(self.state)
+        # print("I: send_predict() say Get state_raw.shape: {}, state.shape: {}, self.state_buf.shape={}".\
+        #          format(np.shape(state_raw), self.state.shape, np.shape(self.state_buf)))
 
-        if  len(self.state)<=0 : #self.state == None:
-            state_raw = self.state_fn()
-            
-            # self.state = self.hist_bufs.add(state_raw)
-            self.state = state_raw
-            self.state_buf.append(self.state)
-            # print("I: send_predict() say Get state_raw.shape: {}, send state.shape: {}".\
-                # format(state_raw.shape, self.state.shape))
-
-
-        # im_8484 = self.pre_process(state)
-        msg = dumps( (seq_str,cmd, self.state) )
         # Send data
-        # print("I: Sending (%s)" % (cmd) )
+        msg = dumps( (seq_str,cmd, self.state) )
         self.client.send( msg,copy=False)
 
-    
-       
     def send_predict_done(self, recv):
         reply_seq_id, reply_action = loads(recv)
         
@@ -138,7 +131,6 @@ class Client(Thread):
         check_result = self.check_reply_seq_id(reply_seq_id)
 
         # print('I: send_predict_done() say check_result={}, reply_seq_id={}, reply_action={}'.format(check_result,reply_seq_id,reply_action) )            
-
 
         if check_result:
             self.action  = reply_action
@@ -152,10 +144,9 @@ class Client(Thread):
 
             self.state = []
 
-            # if self.frame_count < config.STATE_FRAMES, continue to predict
-            if self.frame_count >= config.STATE_FRAMES:
+            # ELSE: continue to predict and get data
+            if self.frame_count >= config.TRAIN_RUN_STEPS or self.done:
                 self.send_type = SEND_TYPE_TRAIN
-
 
             return True
         else:
@@ -166,16 +157,14 @@ class Client(Thread):
         # prepare sequence & cmd
         seq_str = str(self.sequence).encode('utf-8')
         cmd = TRAIN_CMD.encode('utf-8')
-        # Read Image 
-        # im = cv2.imread(self.dir_name + '/' +self.pic_name)
+
         msg = dumps( (seq_str, cmd, self.state_buf, self.action_buf, self.reward_buf, self.next_state,  self.done) )
         #                               (5,7)     ,   (5, 2)                (5,1)           (7,)             value 
 
         # Send data
         # print("I: send_train_data()  cmd = (%s), seq (%s) " % (cmd,seq_str) )
         self.client.send( msg,copy=False)
-        # self.client.send_multipart( msg,copy=False)
-       
+
     def send_train_data_done(self, recv):
         reply_seq_id = loads(recv)
         # print('I: send_train_data_done() say reply_seq_id={}'.format(reply_seq_id) )            
@@ -183,9 +172,6 @@ class Client(Thread):
         check_result = self.check_reply_seq_id(reply_seq_id)
         if check_result:
             self.send_type = SEND_TYPE_PREDICT
-            # self.state = []
-            # self.reward = None
-            # self.action = None
             
             self.frame_count = 0
             self.reward_buf = []
@@ -244,12 +230,3 @@ class Client(Thread):
             else:
                 retry_result = self.retry_connect(self.send_train_data, self.send_train_data_done)
                 
-        
-
-# if __name__ == '__main__':
-
-#     c = Client('Client-1')
-#     c.start()
-
-#     c2 = Client('Client-2')
-#     c2.start()

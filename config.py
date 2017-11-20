@@ -1,7 +1,7 @@
 ''' STATE Parameter '''
 # STATE_FRAMES = 4
 # STATE_SHAPE = (84,84)
-STATE_FRAMES = 5
+STATE_FRAMES = 1                # NOTE: "ONE" state use 4 frames
 STATE_SHAPE = (7,)
 
 ''' ACTION Parameter '''
@@ -14,7 +14,7 @@ NET_TYPE = "A3C"
 
 MAX_GLOBAL_EP = 2000
 MAX_EP_STEP = 300
-UPDATE_GLOBAL_ITER = 5
+TRAIN_RUN_STEPS = 5
 N_WORKERS = 4 # multiprocessing.cpu_count()
 LR_A = 1e-4  # learning rate for actor
 LR_C = 2e-4  # learning rate for critic
