@@ -14,7 +14,7 @@ from utility import *
 import cv2
 import numpy as np
 from config import ACTION_NUM, NET_TYPE, GAMMA
-from ACNet import ACNet
+from network.ACNet import ACNet
 
 BACKEND_ADR  = "tcp://127.0.0.1:5556"
 LRU_READY = "\x01"

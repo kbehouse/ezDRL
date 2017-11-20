@@ -246,10 +246,10 @@ class Client(Thread):
                 
         
 
-if __name__ == '__main__':
+# if __name__ == '__main__':
 
-    c = Client('Client-1')
-    c.start()
+#     c = Client('Client-1')
+#     c.start()
 
-    c2 = Client('Client-2')
-    c2.start()
+#     c2 = Client('Client-2')
+#     c2.start()

@@ -12,7 +12,7 @@ import tensorflow as tf
 
 from worker import Worker
 from utility import *
-from ACNet import ACNet
+from network.ACNet import ACNet
 from config import NET_OUTPUT_GRAPH, NET_MAIN_SCOPE
 
 FRONTEND_ADR = "tcp://*:5555"
