@@ -49,6 +49,9 @@ class TwoDofArm:
         
         self.state, self.reward, self.done, _  = self.env.step(action)
 
+        self.ep_t += 1
+        if self.ep_t == MAX_EP_STEP - 1: self.done = True
+
         self.log_and_show()
 
         return (self.reward, self.done, self.state)
@@ -56,7 +59,7 @@ class TwoDofArm:
 
     def log_and_show(self):
         global GLOBAL_EP, START_TIME
-        self.ep_t += 1
+        
         self.ep_r += self.reward
 
         if self.client.client_id == 'Client-0':
