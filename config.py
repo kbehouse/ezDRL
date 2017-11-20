@@ -1,34 +1,18 @@
-''' STATE Parameter '''
-# STATE_FRAMES = 4
-# STATE_SHAPE = (84,84)
-STATE_FRAMES = 1                # NOTE: "ONE" state use 4 frames
-STATE_SHAPE = (7,)
+import yaml
 
-''' ACTION Parameter '''
-ACTION_NUM = 4
+cfg = []
+
+""" For loader tuple"""
+class YAMLPatch(yaml.SafeLoader):
+    def construct_python_tuple(self, node):
+        return tuple(self.construct_sequence(node))
+
+YAMLPatch.add_constructor(u'tag:yaml.org,2002:python/tuple', YAMLPatch.construct_python_tuple)
 
 
-
-''' NETWORK Parameter '''
-NET_TYPE = "A3C"
-
-MAX_GLOBAL_EP = 2000
-MAX_EP_STEP = 300
-TRAIN_RUN_STEPS = 5
-N_WORKERS = 4 # multiprocessing.cpu_count()
-LR_A = 1e-4  # learning rate for actor
-LR_C = 2e-4  # learning rate for critic
-GAMMA = 0.9  # reward discount
-n_model = 1
-
-ENTROPY_BETA = 0.01
-
-N_S = 7              # 7
-N_A = 2             # 2
-A_BOUND = [-1,1]       # [-1,1]
-
-# Net Parameter
-NET_MAIN_SCOPE = 'Main_Net'
-NET_TYPE = "A3C"
-NET_OUTPUT_GRAPH = True
-NET_LOG_DIR = './log'
+""" Load File"""
+with open("config/default_config.yaml", 'r') as stream:
+    try:
+        cfg = yaml.load(stream, Loader=YAMLPatch)
+    except yaml.YAMLError as exc:
+        print(exc)

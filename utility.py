@@ -9,6 +9,7 @@ msgpack_numpy.patch()
 PREDICT_CMD = "Predict"
 TRAIN_CMD   = "Train"
 
+LRU_READY = "\x01"            # Server side worker READY CHAR
 
 def dumps(obj):
     """

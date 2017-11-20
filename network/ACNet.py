@@ -1,24 +1,24 @@
 import tensorflow as tf
 import numpy as np
-from config import N_S, N_A, A_BOUND, NET_MAIN_SCOPE, ENTROPY_BETA, LR_A, LR_C
+from config import cfg
 
-OPT_A = tf.train.RMSPropOptimizer(LR_A, name='RMSPropA')
-OPT_C = tf.train.RMSPropOptimizer(LR_C, name='RMSPropC')
+OPT_A = tf.train.RMSPropOptimizer(cfg['A3C']['LR_A'], name='RMSPropA')
+OPT_C = tf.train.RMSPropOptimizer(cfg['A3C']['LR_C'], name='RMSPropC')
 
 class ACNet(object):
     def __init__(self, sess, scope, globalAC=None):
         self.sess = sess
 
-        if scope == NET_MAIN_SCOPE:   # get global network
+        if scope == cfg['A3C']['main_net_scope']:   # get global network
             with tf.variable_scope(scope):
-                self.s = tf.placeholder(tf.float32, [None, N_S], 'S')
+                self.s = tf.placeholder(tf.float32, [None, cfg['RL']['state_shape'][0] ], 'S')
                 self._build_net()
                 self.a_params = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=scope + '/actor')
                 self.c_params = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=scope + '/critic')
         else:   # local net, calculate losses
             with tf.variable_scope(scope):
-                self.s = tf.placeholder(tf.float32, [None, N_S], 'S')
-                self.a_his = tf.placeholder(tf.float32, [None, N_A], 'A')
+                self.s = tf.placeholder(tf.float32, [None, cfg['RL']['state_shape'][0] ], 'S')
+                self.a_his = tf.placeholder(tf.float32, [None, cfg['RL']['action_num']], 'A')
                 self.v_target = tf.placeholder(tf.float32, [None, 1], 'Vtarget')
 
                 mu, sigma, self.v = self._build_net()
@@ -29,7 +29,7 @@ class ACNet(object):
 
                 with tf.name_scope('wrap_a_out'):
                     self.test = sigma[0]
-                    mu, sigma = mu * A_BOUND[1], sigma + 1e-5
+                    mu, sigma = mu * cfg['RL']['action_bound'][1], sigma + 1e-5
 
                 normal_dist = tf.contrib.distributions.Normal(mu, sigma)
 
@@ -39,7 +39,7 @@ class ACNet(object):
                     exp_v = log_prob * td
                     
                     entropy = normal_dist.entropy()  # encourage exploration
-                    self.exp_v = ENTROPY_BETA * entropy + exp_v
+                    self.exp_v = cfg['A3C']['ENTROPY_BETA'] * entropy + exp_v
                     self.a_loss = tf.reduce_mean(-self.exp_v)
 
                     # print('normal_dist',normal_dist)
@@ -47,7 +47,7 @@ class ACNet(object):
                     # print('exp_v',exp_v)
 
                 with tf.name_scope('choose_a'):  # use local params to choose action
-                    self.A = tf.clip_by_value(tf.squeeze(normal_dist.sample(1), axis=0), *A_BOUND)
+                    self.A = tf.clip_by_value(tf.squeeze(normal_dist.sample(1), axis=0), *cfg['RL']['action_bound'])
                 with tf.name_scope('local_grad'):
                     self.a_params = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=scope + '/actor')
                     self.c_params = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=scope + '/critic')
@@ -67,8 +67,8 @@ class ACNet(object):
         with tf.variable_scope('actor'):
             l_a = tf.layers.dense(self.s, 400, tf.nn.relu6, kernel_initializer=w_init, name='la')
             l_a = tf.layers.dense(l_a, 300, tf.nn.relu6, kernel_initializer=w_init, name='la2')
-            mu = tf.layers.dense(l_a, N_A, tf.nn.tanh, kernel_initializer=w_init, name='mu')
-            sigma = tf.layers.dense(l_a, N_A, tf.nn.softplus, kernel_initializer=w_init, name='sigma')
+            mu = tf.layers.dense(l_a, cfg['RL']['action_num'], tf.nn.tanh, kernel_initializer=w_init, name='mu')
+            sigma = tf.layers.dense(l_a, cfg['RL']['action_num'], tf.nn.softplus, kernel_initializer=w_init, name='sigma')
         with tf.variable_scope('critic'):
             l_c = tf.layers.dense(self.s, 400, tf.nn.relu6, kernel_initializer=w_init, name='lc')
             l_c = tf.layers.dense(l_c, 200, tf.nn.relu6, kernel_initializer=w_init, name='lc2')

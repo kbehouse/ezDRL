@@ -13,11 +13,11 @@ from threading import Thread
 from utility import *
 import cv2
 import numpy as np
-from config import ACTION_NUM, NET_TYPE, GAMMA
+from config import cfg
 from network.ACNet import ACNet
 
-BACKEND_ADR  = "tcp://127.0.0.1:5556"
-LRU_READY = "\x01"
+BACKEND_ADR  = "tcp://%s:%d" % (cfg['conn']['server_ip'],cfg['conn']['server_backend_port'])
+
 
 class Worker(Thread):
     """ Init Client """
@@ -32,7 +32,7 @@ class Worker(Thread):
         self.worker.connect(BACKEND_ADR)
 
         # RL Init
-        self.nA = ACTION_NUM
+        self.nA = cfg['RL']['action_num']
         # DL Init
         self.sess = sess
         self.net = ACNet(self.sess, worker_id, main_net)
@@ -93,7 +93,7 @@ class Worker(Thread):
         # print('done = {}'.format(done)) 
        
 
-        if NET_TYPE == "A3C":
+        if cfg['RL']['method'] == "A3C":
             # print('train buffer_s.shape={}, type(buffer_s)={}'.format(np.shape(buffer_s), type(buffer_s)))
             # print('train next_state.shape={}, type(next_state)={}'.format(np.shape(next_state), type(next_state)))
             # next_state (7,)  ,  next_state[np.newaxis, :] (1, 7)
@@ -103,7 +103,7 @@ class Worker(Thread):
                 v_s_ = self.sess.run(self.net.v, {self.net.s: next_state[np.newaxis, :]})[0, 0]
             buffer_v_target = []
             for r in rewards[::-1]:    # reverse buffer r
-                v_s_ = r + GAMMA * v_s_
+                v_s_ = r + cfg['A3C']['GAMMA'] * v_s_
                 buffer_v_target.append(v_s_)
             buffer_v_target.reverse()
             

@@ -13,21 +13,19 @@ import tensorflow as tf
 from worker import Worker
 from utility import *
 from network.ACNet import ACNet
-from config import NET_OUTPUT_GRAPH, NET_MAIN_SCOPE
+from config import cfg
 
-FRONTEND_ADR = "tcp://*:5555"
-BACKEND_ADR  = "tcp://*:5556"
 
-LRU_READY = "\x01"
-
-NBR_WORKERS = 4
+FRONTEND_ADR = "tcp://*:%d" % cfg['conn']['server_frontend_port']
+BACKEND_ADR  = "tcp://*:%d" % cfg['conn']['server_backend_port']
 
 class Server:
     def __init__(self):
 
         # DL Init
         self.sess = tf.Session()
-        self.main_net = ACNet(self.sess, NET_MAIN_SCOPE)  
+        method = cfg['RL']['method']
+        self.main_net = ACNet(self.sess, cfg[method]['main_net_scope'])  
 
         self.worker_init()
         self.connect_init()
@@ -63,19 +61,19 @@ class Server:
         # 'All' worker list
         self.worker_list = []
 
-        for i in range(NBR_WORKERS):
+        for i in range(cfg['conn']['server_worker_num']):
             worker_id = u"Worker-{}".format(i).encode("ascii")
             w = Worker(self.sess, worker_id, self.main_net)
             self.worker_list.append(w)
 
 
     def check_output_graph(self):
-        if NET_OUTPUT_GRAPH:
+        if 'log' in cfg and cfg['log']['output_tf']:
             import os, shutil
-            from config import NET_LOG_DIR
-            if os.path.exists(NET_LOG_DIR):
-                shutil.rmtree(NET_LOG_DIR)
-            tf.summary.FileWriter(NET_LOG_DIR, self.sess.graph)
+            log_dir = cfg['log']['output_tf_dir']
+            if os.path.exists(log_dir):
+                shutil.rmtree(log_dir)
+            tf.summary.FileWriter(log_dir, self.sess.graph)
 
 
     def start(self): 

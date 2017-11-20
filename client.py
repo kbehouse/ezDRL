@@ -17,13 +17,13 @@ import zmq
 import numpy as np
 from history_buffer import HistoryBuffer
 from utility import *
-# from config import *
-import config
+from config import cfg
+
 
 # Connect Parameter setting 
-REQUEST_TIMEOUT = 2500
-REQUEST_RETRIES = 3
-FRONTEND_ADR = "tcp://127.0.0.1:5555"
+REQUEST_TIMEOUT = cfg['conn']['client_timeout']
+REQUEST_RETRIES = cfg['conn']['client_retries']
+FRONTEND_ADR  = "tcp://%s:%d" % (cfg['conn']['server_ip'],cfg['conn']['server_frontend_port'])
 
 SEND_TYPE_PREDICT   = 1
 SEND_TYPE_TRAIN     = 2
@@ -57,8 +57,8 @@ class Client(Thread):
         # assume TRAIN_RUN_STEPSS = 5, STATE_SHAPE=(84,84), STATE_FRAMES = 4, ACTION_NUM = 4 
         # state_hist_buf shape = (84, 84, 4)
         # state_buf = (5, 84, 84, 4), reward_buf = (5, ), action_buf = (5, 4)
-        if config.STATE_FRAMES >= 2:
-            self.state_history = HistoryBuffer(config.STATE_SHAPE, config.STATE_FRAMES) 
+        if cfg['RL']['state_frames'] >= 2:
+            self.state_history = HistoryBuffer(cfg['RL']['state_shape'], cfg['RL']['state_frames']) 
         
         self.state_buf = []
         self.reward_buf = []
@@ -103,7 +103,7 @@ class Client(Thread):
             return False
         if int(reply_seq_id) == self.sequence:
             # print("I: Server replied OK (%s)" % reply_seq_id)
-            self.retries_left = REQUEST_RETRIES
+            self.retries_left = cfg['conn']['client_retries']  #REQUEST_RETRIES
             return True
         else:
             print("E: Malformed reply from server: %s" % reply_seq_id)
@@ -115,7 +115,7 @@ class Client(Thread):
         cmd = PREDICT_CMD.encode('utf-8')
         
         state_raw = self.state_fn()
-        self.state= self.state_history.add(state_raw) if config.STATE_FRAMES >= 2 else state_raw
+        self.state= self.state_history.add(state_raw) if cfg['RL']['state_frames'] >= 2 else state_raw
         self.state_buf.append(self.state)
         # print("I: send_predict() say Get state_raw.shape: {}, state.shape: {}, self.state_buf.shape={}".\
         #          format(np.shape(state_raw), self.state.shape, np.shape(self.state_buf)))
@@ -142,10 +142,10 @@ class Client(Thread):
             self.reward_buf.append(self.reward)
             self.frame_count += 1
 
-            self.state = []
+            # self.state = []
 
             # ELSE: continue to predict and get data
-            if self.frame_count >= config.TRAIN_RUN_STEPS or self.done:
+            if self.frame_count >= cfg['RL']['train_run_steps'] or self.done:
                 self.send_type = SEND_TYPE_TRAIN
 
             return True
