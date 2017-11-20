@@ -12,9 +12,10 @@ import tensorflow as tf
 
 from worker import Worker
 from utility import *
-from network.ACNet import ACNet
-from config import cfg
 
+from config import cfg
+from DRL.Base import RL,DRL
+from DRL.A3C import A3C
 
 FRONTEND_ADR = "tcp://*:%d" % cfg['conn']['server_frontend_port']
 BACKEND_ADR  = "tcp://*:%d" % cfg['conn']['server_backend_port']
@@ -22,21 +23,35 @@ BACKEND_ADR  = "tcp://*:%d" % cfg['conn']['server_backend_port']
 class Server:
     def __init__(self):
 
+        
+        method_class = globals()[cfg['RL']['method'] ]
         # DL Init
-        self.sess = tf.Session()
-        method = cfg['RL']['method']
-        self.main_net = ACNet(self.sess, cfg[method]['main_net_scope'])  
+        if issubclass(method_class, DRL):
+            
+            self.sess = tf.Session()
+            method = cfg['RL']['method']
+            self.main_net = method_class(self.sess, cfg[method]['main_net_scope'])  
+        elif issubclass(method_class, RL):
+            pass
+        else:
+            print('E: Worker::__init__() say error method name={}'.format(cfg['RL']['method'] ))
+
+        self.use_DRL = True if issubclass(method_class, DRL) else False
+
+        # # DL Init
+        # self.sess = tf.Session()
+        # self.RL_method = cfg['RL']['method']
+        # self.main_net = A3C(self.sess, cfg[self.RL_method ]['main_net_scope'])  
 
         self.worker_init()
         self.connect_init()
 
         # DL Init 2
-        COORD = tf.train.Coordinator()
-        self.sess.run(tf.global_variables_initializer())
+        if self.use_DRL:
+            COORD = tf.train.Coordinator()
+            self.sess.run(tf.global_variables_initializer())
 
-
-
-        self.check_output_graph()
+            self.check_output_graph()
 
     def connect_init(self):
         # Connet Init
@@ -63,7 +78,8 @@ class Server:
 
         for i in range(cfg['conn']['server_worker_num']):
             worker_id = u"Worker-{}".format(i).encode("ascii")
-            w = Worker(self.sess, worker_id, self.main_net)
+            if self.use_DRL:
+                w = Worker(self.sess, worker_id, self.main_net)
             self.worker_list.append(w)
 
 

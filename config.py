@@ -11,7 +11,7 @@ YAMLPatch.add_constructor(u'tag:yaml.org,2002:python/tuple', YAMLPatch.construct
 
 
 """ Load File"""
-with open("config/default_config.yaml", 'r') as stream:
+with open("config/default.yaml", 'r') as stream:
     try:
         cfg = yaml.load(stream, Loader=YAMLPatch)
     except yaml.YAMLError as exc:

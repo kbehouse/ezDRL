@@ -1,11 +1,20 @@
+#
+#   Send raw picture to server.py
+#   Get gary image(84x84) from server (use worker)  
+#   Save the gray image(84x84)
+#   
+#   Author:  Kartik, Chen  <kbehouse(at)gmail(dot)com>,
+#      
+
 import tensorflow as tf
 import numpy as np
 from config import cfg
+from Base import DRL
 
 OPT_A = tf.train.RMSPropOptimizer(cfg['A3C']['LR_A'], name='RMSPropA')
 OPT_C = tf.train.RMSPropOptimizer(cfg['A3C']['LR_C'], name='RMSPropC')
 
-class ACNet(object):
+class A3C(DRL):
     def __init__(self, sess, scope, globalAC=None):
         self.sess = sess
 
@@ -85,3 +94,26 @@ class ACNet(object):
     def choose_action(self, s):  # run by a local
         s = s[np.newaxis, :]
         return self.sess.run(self.A, {self.s: s})[0]
+
+    def train(self,  states, actions, rewards, next_state, done):
+        if done:
+            v_s_ = 0   # terminal
+        else:
+            v_s_ = self.sess.run(self.v, {self.s: next_state[np.newaxis, :]})[0, 0]
+        buffer_v_target = []
+        for r in rewards[::-1]:    # reverse buffer r
+            v_s_ = r + cfg['A3C']['GAMMA'] * v_s_
+            buffer_v_target.append(v_s_)
+        buffer_v_target.reverse()
+        
+
+        buffer_s, buffer_a, buffer_v_target = np.vstack(states), np.vstack(actions), np.vstack(buffer_v_target)
+
+        feed_dict = {
+            self.s: buffer_s,
+            self.a_his: buffer_a,
+            self.v_target: buffer_v_target,
+        }
+
+        self.update_global(feed_dict)
+        self.pull_global()

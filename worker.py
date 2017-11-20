@@ -14,7 +14,8 @@ from utility import *
 import cv2
 import numpy as np
 from config import cfg
-from network.ACNet import ACNet
+from DRL.Base import RL, DRL
+from DRL.A3C import A3C
 
 BACKEND_ADR  = "tcp://%s:%d" % (cfg['conn']['server_ip'],cfg['conn']['server_backend_port'])
 
@@ -33,9 +34,17 @@ class Worker(Thread):
 
         # RL Init
         self.nA = cfg['RL']['action_num']
+        method_class = globals()[cfg['RL']['method'] ]
+
+
         # DL Init
-        self.sess = sess
-        self.net = ACNet(self.sess, worker_id, main_net)
+        if issubclass(method_class, DRL):
+            self.sess = sess
+            self.RL = method_class(self.sess, worker_id, main_net)
+        elif issubclass(method_class, RL):
+            pass
+        else:
+            print('E: Worker::__init__() say error method name={}'.format(cfg['RL']['method'] ))
 
         self.random = np.random.RandomState(1)
 
@@ -61,68 +70,17 @@ class Worker(Thread):
 
 
 
-    def predict(self, state, greedy = True, epsilon = 0.01):
-        """ 
-            greedy = True for Train; False for only Predict Run
-            type(state)=<type 'numpy.ndarray'>
-        """
-        
-        actions = self.net.choose_action(state)
-        
-        #Process Image
-        # pi = self.policy(state)
-        # if greedy :
-        #     actions = self.random.randint(0,self.nA)
-        #     # if( self.random.rand() < epsilon ) :
-        #     #     actions = self.random.randint(0,self.nA)
-        #     # else :
-        #     #     actions = np.argmax(pi)
-        # else :
-        #     actions = [ self.random.choice(self.nA, 1, p=p)[0] for p in pi ]
-        
-
-        # print('pi={}, actions={}'.format(pi,actions))
-
-        return actions
-
+    def predict(self, state):
+        return self.RL.choose_action(state)
 
     def train(self,tag_id, states, actions, rewards, next_state, done ):
-        # print('train states.shape={}, type(states)={}'.format(np.shape(states), type(states)))
-        # print('train actions.shape={}, type(actions)={}'.format(np.shape(actions), type(actions)))
-        # print('train rewards.shape={}, type(rewards)={}'.format(np.shape(rewards), type(rewards)))
-        # print('done = {}'.format(done)) 
+        # print('I: train get states.shape={}, type(states)={}'.format(np.shape(states), type(states)))
+        # print('I: train get actions.shape={}, type(actions)={}'.format(np.shape(actions), type(actions)))
+        # print('I: train get rewards.shape={}, type(rewards)={}'.format(np.shape(rewards), type(rewards)))
+        # print('I: train get done = {}'.format(done)) 
        
-
-        if cfg['RL']['method'] == "A3C":
-            # print('train buffer_s.shape={}, type(buffer_s)={}'.format(np.shape(buffer_s), type(buffer_s)))
-            # print('train next_state.shape={}, type(next_state)={}'.format(np.shape(next_state), type(next_state)))
-            # next_state (7,)  ,  next_state[np.newaxis, :] (1, 7)
-            if done:
-                v_s_ = 0   # terminal
-            else:
-                v_s_ = self.sess.run(self.net.v, {self.net.s: next_state[np.newaxis, :]})[0, 0]
-            buffer_v_target = []
-            for r in rewards[::-1]:    # reverse buffer r
-                v_s_ = r + cfg['A3C']['GAMMA'] * v_s_
-                buffer_v_target.append(v_s_)
-            buffer_v_target.reverse()
-            
-
-            buffer_s, buffer_a, buffer_v_target = np.vstack(states), np.vstack(actions), np.vstack(buffer_v_target)
-
-            # print('train: vstack buffer_s.shape={}, type(buffer_s)={}'.format(np.shape(buffer_s), type(buffer_s)))
-            # print('train: vstack buffer_a.shape={}, type(buffer_a)={}'.format(np.shape(buffer_a), type(buffer_a)))
-            # print('train: vstack buffer_v_target.shape={}, type(buffer_v_target)={}'.format(np.shape(buffer_v_target), type(buffer_v_target)))
+        self.RL.train(states, actions, rewards, next_state, done)
         
-
-            feed_dict = {
-                self.net.s: buffer_s,
-                self.net.a_his: buffer_a,
-                self.net.v_target: buffer_v_target,
-            }
-            test = self.net.update_global(feed_dict)
-            # buffer_s, buffer_a, buffer_r = [], [], []
-            self.net.pull_global()
 
     def run(self):
         self.worker.send(LRU_READY)
@@ -142,14 +100,14 @@ class Worker(Thread):
                 break
             # unpack msg
             load = loads(msg)
-
-            # print('len(load) = {}'.format(len(load)))
             seq = load[0]
             cmd = load[1]
 
             # print("I: [{}]: Get [{}]'s cmd:({}) , seq:({}) ".format(self.identity, client_id, cmd, seq) )
 
+            
             if PREDICT_CMD == cmd:
+                ''' Predict Section'''
                 state = load[2]
                 actions = self.predict(state)
                 msg = dumps( (seq, actions) )
@@ -159,6 +117,7 @@ class Worker(Thread):
                 #     format(self.identity, client_id, cmd, seq, state.shape) )
 
             elif TRAIN_CMD == cmd:
+                ''' Train Section'''
                 state  = load[2]
                 action = load[3]
                 reward = load[4]
@@ -167,6 +126,8 @@ class Worker(Thread):
 
                 tag_id = "{}+{}".format(client_id, seq)
                 self.train(tag_id, state, action ,reward, next_state, done )
+
+                ''' Send Finish Train'''
                 msg = dumps( seq )
                 self.worker.send_multipart([client_id, _ , msg ])
 
