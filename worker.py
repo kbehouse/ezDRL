@@ -42,6 +42,7 @@ class Worker(Thread):
             self.sess = sess
             self.RL = method_class(self.sess, worker_id, main_net)
         elif issubclass(method_class, RL):
+            self.RL = method_class()
             pass
         else:
             print('E: Worker::__init__() say error method name={}'.format(cfg['RL']['method'] ))
@@ -107,13 +108,18 @@ class Worker(Thread):
             if PREDICT_CMD == cmd:
                 ''' Predict Section'''
                 state = load[2]
+                # print("I: [{}]: Get [{}]'s cmd:({}) , seq:({}), state.shape: {}, ".\
+                #     format(self.identity, client_id, cmd, seq, np.shape(state)) )
+
+                # print("I: state.shape: {}, type(state)= {} ".\
+                #     format(np.shape(state), type(state)) )
+
+
                 actions = self.predict(state)
                 msg = dumps( (seq, actions) )
                 self.worker.send_multipart([client_id, _ , msg ])
 
-                print("I: [{}]: Get [{}]'s cmd:({}) , seq:({}), state.shape: {}, ".\
-                    format(self.identity, client_id, cmd, seq, state.shape) )
-
+                
             elif TRAIN_CMD == cmd:
                 ''' Train Section'''
                 state  = load[2]
@@ -122,6 +128,9 @@ class Worker(Thread):
                 next_state = load[5]
                 done   = load[6]
 
+                # print("I: [{}]: Get [{}]'s cmd:({}) , seq:({}), state.shape: {}, reward: {}, action: {} ".\
+                #     format(self.identity, client_id, cmd, seq, np.shape(state), reward, action) )
+
                 tag_id = "{}+{}".format(client_id, seq)
                 self.train(tag_id, state, action ,reward, next_state, done )
 
@@ -129,7 +138,6 @@ class Worker(Thread):
                 msg = dumps( seq )
                 self.worker.send_multipart([client_id, _ , msg ])
 
-                print("I: [{}]: Get [{}]'s cmd:({}) , seq:({}), state.shape: {}, reward: {}, action: {} ".\
-                    format(self.identity, client_id, cmd, seq, np.shape(state), reward, action) )
+               
 
             

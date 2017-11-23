@@ -5,10 +5,7 @@ from collections import deque
 
 class HistoryBuffer():
     def __init__(self,image_shape,frames_for_state) :
-        # frames_for_state default is 4
         self.buf = deque(maxlen=frames_for_state)
-
-        # self.image_shape = image_shape
         self.expend_axis = len(image_shape)
         self.image_shape = list(image_shape)+[1]
         # print('self.expend_axis={}'.format(self.expend_axis) )

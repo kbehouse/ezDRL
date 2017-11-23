@@ -11,20 +11,21 @@ from abc import ABCMeta,abstractmethod
 from config import cfg
 
 class TD(RL):
-    def __init__(self, learning_rate=0.01, reward_decay=0.9, e_greedy=0.9):
+    def __init__(self):
         self.actions = list(range(cfg['RL']['action_num']))
         m = cfg['RL']['method']
         self.lr      = cfg[m]['LR']
         self.gamma   = cfg[m]['gamma']  # reward_decay
         self.epsilon = cfg[m]['epsilon-greedy']
 
-        print('self.lr={}, self.gamma={}, self.epsilon={}'.\
+        print('I: Use Learning Rate={}, Gamma={}, Epsilon={}'.\
             format(self.lr, self.gamma, self.epsilon))
 
         self.q_table = pd.DataFrame(columns=self.actions, dtype=np.float64)
 
     def check_state_exist(self, state):
         # print('state={}, type = {}'.format(state, type(state)))
+        state = str(state)
         if state not in self.q_table.index:
             # append new state to q table
             self.q_table = self.q_table.append(
@@ -35,19 +36,30 @@ class TD(RL):
                 )
             )
 
-    def choose_action(self, observation):
+    def choose_action(self, state):
+        if type(state) != str:
+            state = np.squeeze(state)
+            # state = np.squeeze(state) if  len(np.shape(state)) > 1 else state
+            # print("I: choose_action()  state={}, state.shape: {}, len(np.shape(s)): {}, type(state)= {} ".\
+            #             format(state, np.shape(state),len(np.shape(state)), type(state)) )
+            assert len(np.shape(state)) == 1,  'TD.choose_action() say state  dimention != 1'
+
+        observation = str(state)
         # print("in TD choose_action")
         self.check_state_exist(observation)
         # action selection
         if np.random.rand() < self.epsilon:
             # choose best action
-            state_action = self.q_table.ix[observation, :]
+            state_action = self.q_table.loc[observation, :]
             state_action = state_action.reindex(np.random.permutation(state_action.index))     # some actions have same value
             action = state_action.argmax()
         else:
             # choose random action
             action = np.random.choice(self.actions)
         return action
+
+    def show_qtalbe(self):
+        print(self.q_table)
 
     @abstractmethod
     def train(self, states, actions, rewards, next_state, done):
@@ -57,26 +69,35 @@ class TD(RL):
 # off-policy
 # Q-Learning
 class QLearning(TD):
-    def __init__(self, actions, learning_rate=0.01, reward_decay=0.9, e_greedy=0.9):
-        super(QLearning, self).__init__(actions, learning_rate, reward_decay, e_greedy)
+    def __init__(self):
+        super(QLearning, self).__init__()
 
     # def learn(self, s, a, r, s_, done):
     def train(self, s, a, r, s_, done):
+        s = np.squeeze(s) if  len(np.shape(s)) > 1 else s
+        s_ = np.squeeze(s_) if  len(np.shape(s_)) > 1 else s_
+        
+        assert len(np.shape(s)) == 1,  'QLearning.train() say s  dimention != 1'
+        assert len(np.shape(s_)) == 1, 'QLearning.train() say s_ dimention != 1'
+        
+        s = str(s)
+        s_ = str(s_)
+        
         self.check_state_exist(s_)
-        q_predict = self.q_table.ix[s, a]
+        q_predict = self.q_table.loc[s, a]
         # if s_ != 'terminal':
-        if done:
-            q_target = r + self.gamma * self.q_table.ix[s_, :].max()  # next state is not terminal
+        if not done:
+            q_target = r + self.gamma * self.q_table.loc[s_, :].max()  # next state is not terminal
         else:
             q_target = r  # next state is terminal
-        self.q_table.ix[s, a] += self.lr * (q_target - q_predict)  # update
+        self.q_table.loc[s, a] += self.lr * (q_target - q_predict)  # update
 
 
 # on-policy
 class SARSA(TD):
 
-    def __init__(self, actions, learning_rate=0.01, reward_decay=0.9, e_greedy=0.5):
-        super(SARSA, self).__init__(actions, learning_rate, reward_decay, e_greedy)
+    def __init__(self):
+        super(SARSA, self).__init__()
         self.next_action = None
     
     
@@ -89,15 +110,30 @@ class SARSA(TD):
 
     # def learn(self, s, a, r, s_,  done):
     def train(self, s, a, r, s_, done):
-        # print('in Learn')
+
+        # print("I: Before squeeze s={}, s.shape: {}, len(np.shape(s)): {}, type(s)= {} ".\
+        #             format(s, np.shape(s),len(np.shape(s)), type(s)) )
+
+        s  = np.squeeze(s)  
+        s_ = np.squeeze(s_) 
+
+        # print("I: After s={}, squeeze s.shape: {}, len(np.shape(s)): {}, type(s)= {} ".\
+        #             format(s, np.shape(s), len(np.shape(s)), type(s)) )
+        
+        assert len(np.shape(s)) == 1,  'SARSA.train() say s  dimention != 1'
+        assert len(np.shape(s_)) == 1, 'SARSA.train() say s_ dimention != 1'
+        
+        s = str(s)
+        s_ = str(s_)
+
         self.check_state_exist(s_)
         self.next_action = super(SARSA,self).choose_action(s_)  
-        q_predict = self.q_table.ix[s, a]
-        # if s_ != 'terminal':
-        if done:
+        q_predict = self.q_table.loc[s, a]
+
+        if not done:
+            q_target = r + self.gamma * self.q_table.loc[s_, self.next_action]  # next state is not terminal
+        else:
             # if r > 0 and self.epsilon < 0.99:
             #     self.epsilon = self.epsilon + 0.001 if self.epsilon < 0.99 else self.epsilon
-            q_target = r + self.gamma * self.q_table.ix[s_, self.next_action]  # next state is not terminal
-        else:
             q_target = r  # next state is terminal
-        self.q_table.ix[s, a] += self.lr * (q_target - q_predict)  # update
+        self.q_table.loc[s, a] += self.lr * (q_target - q_predict)  # update

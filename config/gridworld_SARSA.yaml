@@ -10,12 +10,12 @@ conn:
 RL:
     method: 'SARSA'
     state_frames: 1
-    state_shape: !!python/tuple [4,]
+    state_shape: !!python/tuple [2,]
     action_num: 4
     # action_bound: [-1,1]
-    train_run_steps: 5
+    train_run_steps: 1
 
 SARSA:
-    LR: 0.01  # learning rate for actor (1e-4)
+    LR: 0.1  # learning rate for actor (1e-4)
     gamma: 0.9  # reward discount
     epsilon-greedy: 0.9
