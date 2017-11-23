@@ -15,7 +15,8 @@ log.txt
 __pycache__/
 *.py[cod]
 *$py.class
-
+*.pyc
+*.DS_Store
 # C extensions
 *.so
 

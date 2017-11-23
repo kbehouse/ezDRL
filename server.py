@@ -16,18 +16,17 @@ from utility import *
 from config import cfg
 from DRL.Base import RL,DRL
 from DRL.A3C import A3C
+from DRL.TD import SARSA, QLearning
 
 FRONTEND_ADR = "tcp://*:%d" % cfg['conn']['server_frontend_port']
 BACKEND_ADR  = "tcp://*:%d" % cfg['conn']['server_backend_port']
 
 class Server:
     def __init__(self):
-
-        
+        print('I: Use {} Method'.format(cfg['RL']['method']))
         method_class = globals()[cfg['RL']['method'] ]
         # DL Init
-        if issubclass(method_class, DRL):
-            
+        if issubclass(method_class, DRL): 
             self.sess = tf.Session()
             method = cfg['RL']['method']
             self.main_net = method_class(self.sess, cfg[method]['main_net_scope'])  
@@ -79,7 +78,9 @@ class Server:
         for i in range(cfg['conn']['server_worker_num']):
             worker_id = u"Worker-{}".format(i).encode("ascii")
             if self.use_DRL:
-                w = Worker(self.sess, worker_id, self.main_net)
+                w = Worker(worker_id, self.sess, self.main_net)
+            else:
+                w = Worker(worker_id)
             self.worker_list.append(w)
 
 

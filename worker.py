@@ -16,13 +16,13 @@ import numpy as np
 from config import cfg
 from DRL.Base import RL, DRL
 from DRL.A3C import A3C
+from DRL.TD import SARSA, QLearning
 
 BACKEND_ADR  = "tcp://%s:%d" % (cfg['conn']['server_ip'],cfg['conn']['server_backend_port'])
 
-
 class Worker(Thread):
     """ Init Client """
-    def __init__(self, sess, worker_id, main_net = None ):
+    def __init__(self, worker_id, sess = None, main_net = None ):
         Thread.__init__(self)
         
         self.identity = worker_id # u"Worker-{}".format(worker_id).encode("ascii")
@@ -81,7 +81,6 @@ class Worker(Thread):
        
         self.RL.train(states, actions, rewards, next_state, done)
         
-
     def run(self):
         self.worker.send(LRU_READY)
 
@@ -105,7 +104,6 @@ class Worker(Thread):
 
             # print("I: [{}]: Get [{}]'s cmd:({}) , seq:({}) ".format(self.identity, client_id, cmd, seq) )
 
-            
             if PREDICT_CMD == cmd:
                 ''' Predict Section'''
                 state = load[2]
@@ -113,8 +111,8 @@ class Worker(Thread):
                 msg = dumps( (seq, actions) )
                 self.worker.send_multipart([client_id, _ , msg ])
 
-                # print("I: [{}]: Get [{}]'s cmd:({}) , seq:({}), state.shape: {}, ".\
-                #     format(self.identity, client_id, cmd, seq, state.shape) )
+                print("I: [{}]: Get [{}]'s cmd:({}) , seq:({}), state.shape: {}, ".\
+                    format(self.identity, client_id, cmd, seq, state.shape) )
 
             elif TRAIN_CMD == cmd:
                 ''' Train Section'''
@@ -131,7 +129,7 @@ class Worker(Thread):
                 msg = dumps( seq )
                 self.worker.send_multipart([client_id, _ , msg ])
 
-                # print("I: [{}]: Get [{}]'s cmd:({}) , seq:({}), state.shape: {}, reward: {}, action: {} ".\
-                #     format(self.identity, client_id, cmd, seq, np.shape(state), reward, action) )
+                print("I: [{}]: Get [{}]'s cmd:({}) , seq:({}), state.shape: {}, reward: {}, action: {} ".\
+                    format(self.identity, client_id, cmd, seq, np.shape(state), reward, action) )
 
             

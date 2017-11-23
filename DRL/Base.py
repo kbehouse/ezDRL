@@ -14,7 +14,7 @@ class RL(object):
         pass   
 
     @abstractmethod
-    def train(self,  states, actions, rewards, next_state, done):
+    def train(self, states, actions, rewards, next_state, done):
         pass
 
 @six.add_metaclass(ABCMeta)

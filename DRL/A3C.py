@@ -11,12 +11,12 @@ import numpy as np
 from config import cfg
 from Base import DRL
 
-OPT_A = tf.train.RMSPropOptimizer(cfg['A3C']['LR_A'], name='RMSPropA')
-OPT_C = tf.train.RMSPropOptimizer(cfg['A3C']['LR_C'], name='RMSPropC')
 
 class A3C(DRL):
     def __init__(self, sess, scope, globalAC=None):
         self.sess = sess
+        self.OPT_A = tf.train.RMSPropOptimizer(cfg['A3C']['LR_A'], name='RMSPropA')
+        self.OPT_C = tf.train.RMSPropOptimizer(cfg['A3C']['LR_C'], name='RMSPropC')
 
         if scope == cfg['A3C']['main_net_scope']:   # get global network
             with tf.variable_scope(scope):
@@ -68,8 +68,8 @@ class A3C(DRL):
                     self.pull_a_params_op = [l_p.assign(g_p) for l_p, g_p in zip(self.a_params, globalAC.a_params)]
                     self.pull_c_params_op = [l_p.assign(g_p) for l_p, g_p in zip(self.c_params, globalAC.c_params)]
                 with tf.name_scope('push'):
-                    self.update_a_op = OPT_A.apply_gradients(zip(self.a_grads, globalAC.a_params))
-                    self.update_c_op = OPT_C.apply_gradients(zip(self.c_grads, globalAC.c_params))
+                    self.update_a_op = self.OPT_A.apply_gradients(zip(self.a_grads, globalAC.a_params))
+                    self.update_c_op = self.OPT_C.apply_gradients(zip(self.c_grads, globalAC.c_params))
 
     def _build_net(self):
         w_init = tf.contrib.layers.xavier_initializer()
