@@ -1,5 +1,5 @@
 from client import Client
-from env.maze_env import Maze
+from envs.maze_env import Maze
 import sys, time
 
 GLOBAL_EP = 0

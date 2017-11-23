@@ -9,7 +9,7 @@
 
 import os
 from client import Client
-from env.arm_env import ArmEnv
+from envs.arm_env import ArmEnv
 import time
 MAX_EP_STEP = 300
 GLOBAL_EP = 0

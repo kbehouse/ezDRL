@@ -1,4 +1,4 @@
-from env.maze_env import Maze
+from envs.maze_env import Maze
 from DRL.TD import SARSA
 import sys
 
