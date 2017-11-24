@@ -8,7 +8,6 @@
 import sys
 import zmq
 import multiprocessing
-import tensorflow as tf
 
 from worker import Worker
 from utility import *
@@ -17,6 +16,11 @@ from config import cfg
 from DRL.Base import RL,DRL
 from DRL.A3C import A3C
 from DRL.TD import SARSA, QLearning
+
+method_class = globals()[cfg['RL']['method'] ]
+if issubclass(method_class, DRL): 
+    import tensorflow as tf
+
 
 FRONTEND_ADR = "tcp://*:%d" % cfg['conn']['server_frontend_port']
 BACKEND_ADR  = "tcp://*:%d" % cfg['conn']['server_backend_port']
