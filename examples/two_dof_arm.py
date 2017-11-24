@@ -1,4 +1,6 @@
-#
+# Run with A3C
+#   python examples/two_dof_arm.py config/two_dof_arm_A3C.yaml
+
 #   Send raw picture to server.py
 #   Get gary image(84x84) from server (use worker)  
 #   Save the gray image(84x84)

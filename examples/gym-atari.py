@@ -8,11 +8,12 @@
 #          
 
 import cv2
-import os
-from client import Client
+import sys, os
 import gym
 import scipy.misc
 import numpy as np
+sys.path.append(os.path.abspath(os.path.dirname(__file__)+'/../'))
+from client import Client
 from config import STATE_SHAPE
 
 Atari_Game_Name = 'Breakout-v0'
