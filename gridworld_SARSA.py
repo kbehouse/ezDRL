@@ -2,29 +2,22 @@ from client import Client
 import gym
 import envs
 import sys, time
+import Queue #  matplotlib cannot plot in main thread,
 
 GLOBAL_EP = 0
 START_TIME = time.time()
 
-print("HIHIHI")
-
 class Gridworld_SARSA:
     """ Init Client """
     def __init__(self, client_id):
-        
-        self.done = True
-
+        # env setting
         self.env = gym.make('gridworld-v0')
-        self.env.set_visual(True)
         self.env.reset()
-        
+        # client setting
         self.client = Client(client_id)
         self.client.set_state(self.get_state)
         self.client.set_train(self.train)
-        self.client.start()
-
-        self.env.after(100, self.show)
-
+        
     def get_state(self):
         # print('in State, self.done={}'.format(self.done))
         if self.done:
@@ -38,12 +31,9 @@ class Gridworld_SARSA:
         return self.state
 
     def train(self,action):
-        
         self.next_state, self.reward, self.done, _  = self.env.step(action)
-
         self.ep_use_step += 1
         self.log_and_show()
-
         return (self.reward, self.done, self.next_state)
 
 
@@ -51,7 +41,8 @@ class Gridworld_SARSA:
         global GLOBAL_EP, START_TIME
 
         if GLOBAL_EP % 10 == 0:
-            self.show()
+            self.callback_queue.put(self.show)
+            self.callback_queue.join()
 
         if self.done:
             use_secs = time.time() - START_TIME
@@ -60,12 +51,23 @@ class Gridworld_SARSA:
                 
             GLOBAL_EP += 1
 
+    def start(self):
+        self.done = True
+        self.callback_queue = Queue.Queue()
+        self.client.start()
 
-    def show():
-        
-        self.env.render()
+        # because matplotlib cannot plot in main thread, you need to do that
+        while True:
+            #blocking 
+            callback = self.callback_queue.get() #blocks until an item is available
+            callback()
+            self.callback_queue.task_done()
+
+    def show(self):
+        global GLOBAL_EP
+        self.env._render(title = 'Episode: %d' % GLOBAL_EP)
 
 if __name__ == '__main__':
-    Gridworld_SARSA('Client-0') 
-
+    g = Gridworld_SARSA('Client-0') 
+    g.start()
         
