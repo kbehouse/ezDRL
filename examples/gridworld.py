@@ -1,13 +1,21 @@
+# Run with QLearning
+#   python examples/gridworld.py config/gridworld_QLearning.yaml
+# Run With SARSA
+#   python examples/gridworld.py config/gridworld_SARSA.yaml
+
+import sys, os
+import Queue # matplotlib cannot plot in main thread,
+import time
+import gym  #OpenAI gym
+# append this repo's root path
+sys.path.append(os.path.abspath(os.path.dirname(__file__)+'/../'))
 from client import Client
-import gym
 import envs
-import sys, time
-import Queue #  matplotlib cannot plot in main thread,
 
 GLOBAL_EP = 0
 START_TIME = time.time()
 
-class Gridworld_SARSA:
+class Gridworld_EX:
     """ Init Client """
     def __init__(self, client_id):
         # env setting
@@ -19,14 +27,12 @@ class Gridworld_SARSA:
         self.client.set_train(self.train)
         
     def get_state(self):
-        # print('in State, self.done={}'.format(self.done))
         if self.done:
             self.done = False
             self.ep_use_step = 0
             self.next_state =  self.env.reset()
-            self.state = self.next_state
-        else:
-            self.state = self.next_state
+
+        self.state = self.next_state
         
         return self.state
 
@@ -40,7 +46,7 @@ class Gridworld_SARSA:
     def log_and_show(self):
         global GLOBAL_EP, START_TIME
 
-        if GLOBAL_EP % 10 == 0:
+        if GLOBAL_EP % 50 == 0:
             self.callback_queue.put(self.show)
             self.callback_queue.join()
 
@@ -68,6 +74,6 @@ class Gridworld_SARSA:
         self.env._render(title = 'Episode: %d' % GLOBAL_EP)
 
 if __name__ == '__main__':
-    g = Gridworld_SARSA('Client-0') 
+    g = Gridworld_EX('Client-0') 
     g.start()
         

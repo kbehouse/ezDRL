@@ -7,7 +7,8 @@
 #   Author:  Kartik, Chen  <kbehouse(at)gmail(dot)com>,
 #          
 
-import os
+import sys, os
+sys.path.append(os.path.abspath(os.path.dirname(__file__)+'/../'))
 from client import Client
 from envs.arm_env import ArmEnv
 import time

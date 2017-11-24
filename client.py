@@ -35,8 +35,6 @@ class Client(Thread):
         Thread.__init__(self)
         
         self.client_id = client_id
-
-
         # Connect Init
         self.context = zmq.Context(1)
         print("I: Connecting to server...")
