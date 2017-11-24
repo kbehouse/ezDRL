@@ -31,8 +31,10 @@ python two_dof_arm.py
 2. Move example python to examples
 ```
 # Run With SARSA
+python server.py config/gridworld_SARSA.yaml
 python examples/gridworld.py config/gridworld_SARSA.yaml
 # Run with QLearning
+python server.py config/gridworld_QLearning.yaml
 python examples/gridworld.py config/gridworld_QLearning.yaml
 ```
 

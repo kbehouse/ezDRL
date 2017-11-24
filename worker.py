@@ -69,8 +69,6 @@ class Worker(Thread):
         p = ones / self.nA
         return p
 
-
-
     def predict(self, state):
         return self.RL.choose_action(state)
 

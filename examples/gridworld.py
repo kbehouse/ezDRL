@@ -1,6 +1,8 @@
 # Run with QLearning
+#   python server.py config/gridworld_QLearning.yaml
 #   python examples/gridworld.py config/gridworld_QLearning.yaml
 # Run With SARSA
+#   python server.py config/gridworld_SARSA.yaml
 #   python examples/gridworld.py config/gridworld_SARSA.yaml
 
 import sys, os
