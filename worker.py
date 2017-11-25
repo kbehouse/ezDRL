@@ -129,6 +129,9 @@ class Worker(Thread):
                 # print("I: [{}]: Get [{}]'s cmd:({}) , seq:({}), state.shape: {}, reward: {}, action: {} ".\
                 #     format(self.identity, client_id, cmd, seq, np.shape(state), reward, action) )
 
+                # print("I: [{}]: seq:({}) reward.shape: {}, action.shape: {} ".\
+                #     format(self.identity, seq, np.shape(reward), np.shape(action)) )
+
                 tag_id = "{}+{}".format(client_id, seq)
                 self.train(tag_id, state, action ,reward, next_state, done )
 

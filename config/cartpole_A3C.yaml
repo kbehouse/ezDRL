@@ -10,10 +10,9 @@ conn:
 RL:
     method: 'A3C'
     state_frames: 1
-    state_shape: !!python/tuple [7,]
+    state_shape: !!python/tuple [4,]
     action_num: 2
-    action_discrete: no         # no -> provide action_bound for continuous
-    action_bound: [-1,1]        
+    action_discrete: yes
     train_run_steps: 5
 
 A3C:

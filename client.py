@@ -159,8 +159,11 @@ class Client(Thread):
         msg = dumps( (seq_str, cmd, self.state_buf, self.action_buf, self.reward_buf, self.next_state,  self.done) )
         #                               (5,7)     ,   (5, 2)                (5,1)           (7,)             value 
 
+        
+        # print("I: send_train_data()  cmd = ({}), seq ({}) , state_buf.shape: {}, ".\
+        #     format(cmd,seq_str, np.shape(self.state_buf)) )
+
         # Send data
-        # print("I: send_train_data()  cmd = (%s), seq (%s) " % (cmd,seq_str) )
         self.client.send( msg,copy=False)
 
     def send_train_data_done(self, recv):
