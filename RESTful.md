@@ -4,8 +4,8 @@ URL: /session
 Request: config.yaml
 Response: 
       client_id:  [dynamic id]
-      predict_url: http://[ip]:[port]/[dynamic_id]/predict
-      train_url: http://[ip]:[port]/[dynamic_id]/ train
+      predict_url: http://[ip]:[port]/[client_id]/predict
+      train_url: http://[ip]:[port]/[client_id]/train
       EXAMPLE:
         {client_id: 2df12cdtw, 
         predict_url: http://127.0.0.1:5555/2df12cdtw/predict,
