@@ -50,6 +50,12 @@ Response:
 URL: /[client_id]/info
 Request: {type: setting}
 Response: config.yaml
+
+Request: {type: data_pool}
+Response: html format for all state, reward and done
+
+Request: {type: model_pool}
+Response: html format for all models
 ```
 
 # Dashboard
