@@ -6,10 +6,14 @@ Response:
       client_id:  [dynamic id]
       predict_url: http://[ip]:[port]/[client_id]/predict
       train_url: http://[ip]:[port]/[client_id]/train
+      info_url: http://[ip]:[port]/[client_id]/info
+      dashboard: http://[ip]:[port]/[client_id]/dashboard
       EXAMPLE:
         {client_id: 2df12cdtw, 
         predict_url: http://127.0.0.1:5555/2df12cdtw/predict,
-        train_url: http://127.0.0.1:5555/2df12cdtw/train}
+        train_url: http://127.0.0.1:5555/2df12cdtw/train,
+        info_url: http://127.0.0.1:5555/2df12cdtw/info,
+        dashboard: http://[ip]:[port]/[client_id]/dashboard }
 ```
 # Predict
 ```
@@ -39,4 +43,17 @@ Response:
       receive: boolean 
       EXAMPLE
         {receive: true}
+```
+
+# Info
+```
+URL: /[client_id]/info
+Request: {type: setting}
+Response: config.yaml
+```
+
+# Dashboard
+```
+URL: /[client_id]/dashboard
+Response: html format for training information
 ```
