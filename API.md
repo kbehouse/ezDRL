@@ -1,6 +1,7 @@
 # Create Session
 ```
-URL: /session
+Type: WebSocket
+URI: /session
 Request: config.yaml
 Response: 
       client_id:  [dynamic id]
@@ -17,7 +18,8 @@ Response:
 ```
 # Predict
 ```
-URL: /[client_id]/predict
+Type: WebSocket
+URI: /[client_id]/predict
 Request: 
       env_id: [id] (Depend on algorithm: Q-Learning, DQN dosen't use it, but A3C use it for logging)
       state: [data]
@@ -30,7 +32,8 @@ Response:
 ```
 # Train
 ```
-URL: /[client_id]/train
+Type: WebSocket
+URI: /[client_id]/train
 Request: 
       state: [data]
       next_state: [data]
@@ -47,19 +50,21 @@ Response:
 
 # Info
 ```
-URL: /[client_id]/info
+Type: WebSocket
+URI: /[client_id]/info
 Request: {type: setting}
 Response: config.yaml
-
-Request: {type: data_pool}
-Response: html format for all state, reward and done
-
-Request: {type: model_pool}
-Response: html format for all models
 ```
 
 # Dashboard
 ```
-URL: /[client_id]/dashboard
+Type: HTTP
+URI: /[client_id]/dashboard
 Response: html format for training information
+
+URI: /[client_id]/dashboard/data_pool
+Response: html format for all state, reward and done
+
+URI: /[client_id]/dashboard/model_pool
+Response: html format for all models
 ```
