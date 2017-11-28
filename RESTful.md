@@ -13,7 +13,7 @@ Response:
 ```
 # Predict
 ```
-URL: /[client_id ]/predict
+URL: /[client_id]/predict
 Request: 
       env_id: [id] (Depend on algorithm: Q-Learning, DQN dosen't use it, but A3C use it for logging)
       state: [data]
