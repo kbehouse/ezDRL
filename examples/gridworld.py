@@ -56,8 +56,8 @@ class Gridworld_EX:
         global GLOBAL_EP, START_TIME
 
 
-        # if self.client.client_id == 'Client-0' and GLOBAL_EP % 50 == 25:
-        #     self.client_render = True
+        if self.client.client_id == 'Client-0' and GLOBAL_EP % 50 == 25:
+            self.client_render = True
         
         if self.client_render :
             self.callback_queue.put(self.show)

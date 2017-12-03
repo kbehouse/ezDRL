@@ -26,7 +26,16 @@ python two_dof_arm.py
 
 ## Version Note 
 
-### v0.04 (latest)
+### v0.05 (latest)
+1. A3C (continuous) Can Run!!
+2. Run two_dof_arm
+```
+# Run two_dof_arm.py with A3C
+python server.py               config/two_dof_arm_A3C.yaml
+python examples/two_dof_arm.py config/two_dof_arm_A3C.yaml
+```
+
+### v0.04
 1. QLearning, SARSA Can Run!!
 2. Move example python to examples
 ```
