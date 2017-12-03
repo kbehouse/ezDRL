@@ -6,22 +6,18 @@ import tensorflow as tf
 import numpy as np
 from config import cfg
 from Base import DRL
-from commons.ops import *
+
 
 class A3C(DRL):
     def __init__(self, sess, scope, globalAC=None):
         super(A3C, self).__init__()
 
         self.sess = sess
-        # self.OPT_A = tf.train.RMSPropOptimizer(cfg['A3C']['LR_A'], name='RMSPropA')
-        # self.OPT_C = tf.train.RMSPropOptimizer(cfg['A3C']['LR_C'], name='RMSPropC')
-
-        self.OPT_A = tf.train.AdamOptimizer(cfg['A3C']['LR_A'], name='RMSPropA')
-        self.OPT_C = tf.train.AdamOptimizer(cfg['A3C']['LR_C'], name='RMSPropC')
+        self.OPT_A = tf.train.RMSPropOptimizer(cfg['A3C']['LR_A'], name='RMSPropA')
+        self.OPT_C = tf.train.RMSPropOptimizer(cfg['A3C']['LR_C'], name='RMSPropC')
 
         self.discrete = cfg['RL']['action_discrete']
         # print("I: A3C Use {} Graph".format( 'Discrete' if self.discrete else 'Continuous'))
-        self.scope = scope
 
         if scope == cfg['A3C']['main_net_scope']:   # get global network
             self.build_main_net(scope)
@@ -39,7 +35,6 @@ class A3C(DRL):
         with tf.variable_scope(scope):
             a_type = tf.int32 if self.discrete else tf.float32
             self.a_his = tf.placeholder(a_type, [None, ], 'A')
-            # !!!
             self.s = tf.placeholder(tf.float32, [None, cfg['RL']['state_shape'][0] ], 'S')
             self.v_target = tf.placeholder(tf.float32, [None, 1], 'Vtarget')
 
@@ -105,56 +100,23 @@ class A3C(DRL):
         w_init = tf.contrib.layers.xavier_initializer()
 
         if self.discrete:   
-            with tf.variable_scope('actor'):
-                l_a = tf.layers.dense(self.s, 200, tf.nn.relu6, kernel_initializer=w_init, name='la')
-                a_prob = tf.layers.dense(l_a, cfg['RL']['action_num'], tf.nn.softmax, kernel_initializer=w_init, name='ap')
-            with tf.variable_scope('critic'):
-                l_c = tf.layers.dense(self.s, 100, tf.nn.relu6, kernel_initializer=w_init, name='lc')
-                v = tf.layers.dense(l_c, 1, kernel_initializer=w_init, name='v')  # state value
-            return a_prob, v
             # with tf.variable_scope('actor'):
-            #     l_a = tf.layers.dense(self.s, 400, tf.nn.relu6, kernel_initializer=w_init, name='la')
-            #     l_a = tf.layers.dense(l_a, 300, tf.nn.relu6, kernel_initializer=w_init, name='la2')
-            #     l_a = tf.layers.dense(l_a, 200, tf.nn.relu6, kernel_initializer=w_init, name='la3')
+            #     l_a = tf.layers.dense(self.s, 200, tf.nn.relu6, kernel_initializer=w_init, name='la')
             #     a_prob = tf.layers.dense(l_a, cfg['RL']['action_num'], tf.nn.softmax, kernel_initializer=w_init, name='ap')
             # with tf.variable_scope('critic'):
-            #     l_c = tf.layers.dense(self.s, 400, tf.nn.relu6, kernel_initializer=w_init, name='lc')
-            #     l_c = tf.layers.dense(l_c, 200, tf.nn.relu6, kernel_initializer=w_init, name='lc2')
-            #     l_c = tf.layers.dense(l_c, 100, tf.nn.relu6, kernel_initializer=w_init, name='lc3')
+            #     l_c = tf.layers.dense(self.s, 100, tf.nn.relu6, kernel_initializer=w_init, name='lc')
             #     v = tf.layers.dense(l_c, 1, kernel_initializer=w_init, name='v')  # state value
-            # return a_prob, v
-            """
-            channels = cfg['RL']['state_frames']
-            spec = [
-                Conv2d('conv1',channels,32,8,8,4,4,data_format='NHWC'),
-                lambda t : tf.nn.relu(t),
-                Conv2d('conv2',32,64,4,4,2,2,data_format='NHWC'),
-                lambda t : tf.nn.relu(t),
-                Linear('linear1',64*11*11,256),
-                lambda t : tf.nn.relu(t),
-            ]
 
-            _t = self.s
-            # print('Before block in spec')
-
-            for block in spec :
-                print('')
-                _t = block(_t)
-                # print('block={}'.format(block))
-                # print('_t={}'.format(_t))
-            #----- build policy -----#
-            EPSILON=1e-7
-            policy = Linear('linear-policy',256,cfg['RL']['action_num'])(_t)
-            softmax_policy = tf.nn.softmax(policy+EPSILON)
-
-            #----- build value -----#
-            v = tf.squeeze(Linear('linear-value',256,1)(_t),axis=1)
+            with tf.variable_scope('actor'):
+                l_a = tf.layers.dense(self.s, 400, tf.nn.relu6, kernel_initializer=w_init, name='la')
+                l_a = tf.layers.dense(l_a, 300, tf.nn.relu6, kernel_initializer=w_init, name='la2')
+                a_prob = tf.layers.dense(l_a, cfg['RL']['action_num'], tf.nn.softmax, kernel_initializer=w_init, name='ap')
+            with tf.variable_scope('critic'):
+                l_c = tf.layers.dense(self.s, 400, tf.nn.relu6, kernel_initializer=w_init, name='lc')
+                l_c = tf.layers.dense(l_c, 200, tf.nn.relu6, kernel_initializer=w_init, name='lc2')
+                v = tf.layers.dense(l_c, 1, kernel_initializer=w_init, name='v')  # state value
                 
-            return softmax_policy, v
-            """
-
-
-            
+            return a_prob, v
         else:
             # print("I: A3C Use Continuous Graph")
             with tf.variable_scope('actor'):

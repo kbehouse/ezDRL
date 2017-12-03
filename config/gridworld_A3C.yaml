@@ -3,17 +3,17 @@ conn:
     server_ip: 127.0.0.1
     server_frontend_port: 5555
     server_backend_port: 5556
-    client_num: 4
+    client_num: *ref_server_worker_num
     client_retries: 3
     client_timeout: 2500   #ms
 
 RL:
     method: 'A3C'
     state_frames: 1
-    state_shape: !!python/tuple [4,]
+    state_shape: !!python/tuple [2,]
     action_discrete: yes
-    action_num: 2
-    train_run_steps: 5
+    action_num: 4
+    train_run_steps: 4
 
 A3C:
     LR_A: 0.0001  # learning rate for actor (1e-4)

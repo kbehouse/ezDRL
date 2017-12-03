@@ -11,6 +11,7 @@ RL:
     method: 'SARSA'
     state_frames: 1
     state_shape: !!python/tuple [2,]
+    action_discrete: yes
     action_num: 4
     train_run_steps: 1
 

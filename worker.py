@@ -106,8 +106,8 @@ class Worker(Thread):
             if PREDICT_CMD == cmd:
                 ''' Predict Section'''
                 state = load[2]
-                # print("I: [{}]: Get [{}]'s cmd:({}) , seq:({}), state.shape: {}, ".\
-                #     format(self.identity, client_id, cmd, seq, np.shape(state)) )
+                # print("I: [{}]: Get [{}]'s cmd:({}) , seq:({}), state.shape: {}, type(state): {} ".\
+                #     format(self.identity, client_id, cmd, seq, np.shape(state), type(state)) )
 
                 # print("I: state.shape: {}, type(state)= {} ".\
                 #     format(np.shape(state), type(state)) )
