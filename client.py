@@ -1,233 +1,167 @@
-#
-#   Send raw picture to server.py
-#   Get gary image(84x84) from server (use worker)  
-#   Save the gray image(84x84)
-#   
-#   Author:  Kartik, Chen  <kbehouse(at)gmail(dot)com>,
-#          
-
-import os
-from collections import deque
+from socketIO_client import SocketIO, BaseNamespace
+import sys, os, time
+import numpy as np
+import json
+# append this repo's root path
+sys.path.append(os.path.abspath(os.path.dirname(__file__)+'/../'))
+import envs
+import gym
+from config import cfg
 from threading import Thread
 
-import cv2
-import zmq
+TRAIN_MODE = True
+
+#--------------Alread have id, connect again -------------#
+class EnvSpace(BaseNamespace):
+    def on_connect(self):
+        self.frame_count = 0
+        self.reward_buf = []
+        self.state_buf  = []
+        self.action_buf = []
+        # print('EnvSpace say connect')
+        self.start_time = time.time()
+        self.ep = 0
+        self.ep_use_step = 0
+        self.ep_reward = 0
+        self.env_name =''
+        self.env_init()
+
+    def on_disconnect(self):
+        print('{} env say disconnect'.format(self.env_name))
+
+        
+    def env_init(self):
+        pass
+
+    def send_state_get_action(self, state):
+        state       = state.tolist() if type(state) != list else state
+        dic ={'state': state}
+        self.emit('predict',dic)
+    
+    def send_train_get_action(self, state, action, reward, done,next_state):
+        self.ep_use_step += 1
+        self.ep_reward += reward
+        
+        state      = state.tolist() if type(state) == np.ndarray else state
+        next_state = next_state.tolist() if type(next_state) == np.ndarray else next_state
+
+        if not cfg['RL']['train_multi_steps']:
+            # train_multi_steps = no, like using Q-Learning, SARSA 
+            dic ={'state': state, 
+                        'action': action, 
+                        'reward': reward, 
+                        'done':done,
+                        'next_state': next_state}
+            self.emit('train_and_predict',dic)
+        else:
+            # train_multi_steps = yes, like using DRL, A3C, DQN...etc.
+            self.frame_count+=1
+            self.state_buf.append(state)
+            self.action_buf.append(action)
+            self.reward_buf.append(reward)
+            if self.frame_count >= cfg['RL']['train_run_steps'] or done:
+
+                # print('I: send for train state_buf.shape={}, type(state_buf)={}, state_buf={}'.format(np.shape(self.state_buf), type(self.state_buf),self.state_buf))
+                # print('I: send for train action_buf.shape={}, type(action_buf)={}, action_buf={}'.format(np.shape(self.action_buf), type(self.action_buf), self.action_buf))
+                # print('I: send for train reward_buf.shape={}, type(reward_buf)={}, reward_buf={}'.format(np.shape(self.reward_buf), type(self.reward_buf), self.reward_buf))
+                # print('I: send for train done = {}, type(done)={}'.format(done,type(done)) )
+
+                dic ={'state': self.state_buf, 
+                        'action': self.action_buf, 
+                        'reward': self.reward_buf, 
+                        'done':done,
+                        'next_state': next_state}
+                self.emit('train_and_predict',dic)
+
+                self.frame_count = 0
+                self.reward_buf = []
+                self.state_buf  = []
+                self.action_buf = []
+            else:
+                self.send_state_get_action(state)
 
 
-import numpy as np
-from history_buffer import HistoryBuffer
-from utility import *
-from config import cfg
+        if done:
+            self.ep+=1
+            self.log()
+            self.ep_use_step = 0
 
 
-# Connect Parameter setting 
-REQUEST_TIMEOUT = cfg['conn']['client_timeout']
-REQUEST_RETRIES = cfg['conn']['client_retries']
-FRONTEND_ADR  = "tcp://%s:%d" % (cfg['conn']['server_ip'],cfg['conn']['server_frontend_port'])
+    def log(self):
+        use_secs = time.time() - self.start_time
+        time_str = '%3dh%3dm%3ds' % (use_secs/3600, (use_secs%3600)/60, use_secs % 60 )
+        # print('%s -> EP:%4d, STEP:%3d, r: %4.2f, t:%s' % (self.client.client_id,  self.ep,  self.ep_use_step, self.reward, time_str))
+        print('(%s) EP:%5d, STEP:%4d, r: %7.2f, t:%s' % ( self.env_name, self.ep,  self.ep_use_step, self.ep_reward, time_str))
 
-SEND_TYPE_PREDICT   = 1
-SEND_TYPE_TRAIN     = 2
+    def set_name(self,name):
+        # print('set_name  = ', name)
+        self.env_name = name
+
+class Gridworld_EX(EnvSpace):
+
+    def env_init(self):
+        self.EP_MAXSTEP = 1000
+        self.env = gym.make('gridworld-v0')
+        self.state = self.env.reset()
+
+        self.send_state_get_action(self.state)
+
+    def on_predict_response(self, action):
+        # print('client get action data = {}'.format(action))
+
+        next_state, reward, done, _ = self.env.step(action)
+        if TRAIN_MODE:
+            self.send_train_get_action(self.state, action, reward, done, next_state)
+        else:
+            self.send_state_get_action(self.state)
+        if self.ep_use_step >= self.EP_MAXSTEP: done = True
+        if self.ep % 50 == 25:
+            self.env._render(title = 'Episode: %4d, Step: %4d' % (self.ep,self.ep_use_step))
+        self.state = next_state
+        if done:
+            self.state =  self.env.reset()
+            self.send_state_get_action(self.state)
+
 
 
 class Client(Thread):
-    """ Init Client """
-    def __init__(self, client_id):
+    def __init__(self, target_env_class, env_name=''):
         Thread.__init__(self)
-        
-        self.client_id = client_id
-        # Connect Init
-        self.context = zmq.Context(1)
-        print("I: Connecting to server...")
-        self.poll = zmq.Poller()
-        self.open_connect_pollin()
-
-        # Init other
-        self.sequence = 0
-        self.retries_left = REQUEST_RETRIES
-        
-        self.send_type = SEND_TYPE_PREDICT
-        
-        self.state = []
-        self.next_state = None
-        self.frame_count = 0
-
-        # Note: 
-        # assume TRAIN_RUN_STEPSS = 5, STATE_SHAPE=(84,84), STATE_FRAMES = 4, ACTION_NUM = 4 
-        # state_hist_buf shape = (84, 84, 4)
-        # state_buf = (5, 84, 84, 4), reward_buf = (5, ), action_buf = (5, 4)
-        if cfg['RL']['state_frames'] >= 2:
-            self.state_history = HistoryBuffer(cfg['RL']['state_shape'], cfg['RL']['state_frames']) 
-        
-        self.state_buf = []
-        self.reward_buf = []
-        self.action_buf = []
-
-
-    def __del__(self):
-        self.context.term()  
-
-    def set_state(self, state_func):
-        self.state_fn = state_func
-
-    def set_train(self, train_func):
-        self.train_fn = train_func
-
-    """ Picture function & picture init """
-    def get_pic_list_from_dir(self,dir_name):
-        pic_list = []
-        for filename in os.listdir(dir_name):
-            suffix = filename.split(".")[-1]
-            if  suffix == 'jpg' or suffix == 'jpeg' or suffix=='png':
-                pic_list.append( filename)
-        return pic_list
-
-    def open_connect_pollin(self):
-        self.client = self.context.socket(zmq.REQ)
-        # self.client = self.context.socket(zmq.DEALER)
-        self.client.setsockopt(zmq.IDENTITY, self.client_id)
-        self.client.connect(FRONTEND_ADR)
-        self.poll.register(self.client, zmq.POLLIN)
-
-    def close_connect(self):
-        # Socket is confused. Close and remove it.
-        self.client.setsockopt(zmq.LINGER, 0)
-        self.client.close()
-        self.poll.unregister(self.client)
-        # self.retries_left -= 1
-
-
-    def check_reply_seq_id(self, reply_seq_id):
-        if not reply_seq_id:
-            return False
-        if int(reply_seq_id) == self.sequence:
-            # print("I: Server replied OK (%s)" % reply_seq_id)
-            self.retries_left = cfg['conn']['client_retries']  #REQUEST_RETRIES
-            return True
-        else:
-            print("E: Malformed reply from server: %s" % reply_seq_id)
-            return False
-
-    def send_predict(self): 
-        # prepare sequence & cmd
-        seq_str = str(self.sequence).encode('utf-8')
-        cmd = PREDICT_CMD.encode('utf-8')
-        
-        state_raw = self.state_fn()
-        self.state= self.state_history.add(state_raw) if cfg['RL']['state_frames'] >= 2 else state_raw
-        self.state_buf.append(self.state)
-        # print("I: send_predict() say Get state_raw.shape: {}, state.shape: {}, self.state_buf.shape={}".\
-        #          format(np.shape(state_raw), self.state.shape, np.shape(self.state_buf)))
-
-        # Send data
-        msg = dumps( (seq_str,cmd, self.state) )
-        self.client.send( msg,copy=False)
-
-    def send_predict_done(self, recv):
-        reply_seq_id, reply_action = loads(recv)
-        
-        #check sequence
-        check_result = self.check_reply_seq_id(reply_seq_id)
-
-        # print('I: send_predict_done() say check_result={}, reply_seq_id={}, reply_action={}'.format(check_result,reply_seq_id,reply_action) )            
-
-        if check_result:
-            self.action  = reply_action
-            self.action_buf.append(self.action)
-            # self.send_type = SEND_TYPE_TRAIN
-
-            # Train
-            self.reward, self.done, self.next_state = self.train_fn(self.action)
-            self.reward_buf.append(self.reward)
-            self.frame_count += 1
-
-            # self.state = []
-
-            # ELSE: continue to predict and get data
-            if self.frame_count >= cfg['RL']['train_run_steps'] or self.done:
-                self.send_type = SEND_TYPE_TRAIN
-
-            return True
-        else:
-            print('W: send_predict_done() say check_result = False!!')
-            return False
-
-    def send_train_data(self):
-        # prepare sequence & cmd
-        seq_str = str(self.sequence).encode('utf-8')
-        cmd = TRAIN_CMD.encode('utf-8')
-
-        msg = dumps( (seq_str, cmd, self.state_buf, self.action_buf, self.reward_buf, self.next_state,  self.done) )
-        #                               (5,7)     ,   (5, 2)                (5,1)           (7,)             value 
-
-        
-        # print("I: send_train_data()  cmd = ({}), seq ({}) , state_buf.shape: {}, ".\
-        #     format(cmd,seq_str, np.shape(self.state_buf)) )
-
-        # Send data
-        self.client.send( msg,copy=False)
-
-    def send_train_data_done(self, recv):
-        reply_seq_id = loads(recv)
-        # print('I: send_train_data_done() say reply_seq_id={}'.format(reply_seq_id) )            
-        #check sequence
-        check_result = self.check_reply_seq_id(reply_seq_id)
-        if check_result:
-            self.send_type = SEND_TYPE_PREDICT
-            
-            self.frame_count = 0
-            self.reward_buf = []
-            self.state_buf  = []
-            self.action_buf = []
-
-            return True
-        else:
-            print('W: send_train_data_done() say check_result = False!!')
-            return False
-
-    def retry_connect(self, main_cb, done_cb):
-        main_cb()
-        # expect_reply = True
-        while self.retries_left >= 0:
-            socks = dict(self.poll.poll(REQUEST_TIMEOUT))
-            if socks.get(self.client) == zmq.POLLIN:
-                try:
-                    recv = self.client.recv()
-                except Exception as e:
-                    self.close_connect()
-                    print('Client::run() recv = self.client.recv() Exception = {}'.format(e))
-                    # expect_reply = False
-                    return False
-                    break
-                # reply_seq_id, reply_im = loads(recv)
-
-                result = done_cb(recv)
-                if result:
-                    self.retries_left = REQUEST_RETRIES
-                    # expect_reply = False
-                    return True
-                else:
-                    print('W: retry_connect Get FAIL Result' )              
-                    # return False
-            else:
-                
-                self.close_connect()
-                self.retries_left -= 1
-                if self.retries_left <= 0:
-                    print("E: Server seems to be offline, abandoning")
-                    return False
-                    break
-
-                print("W: No response from server, retrying...{}...".format(self.retries_left))
-                # retry open connect and send again
-                self.open_connect_pollin()
-                main_cb()
-
+        self.target_env_class = target_env_class
+        self.env_name = env_name
+        self.socketIO = SocketIO('127.0.0.1', 5000)
+        self.socketIO.on('connect', self.on_connect)
+        self.socketIO.on('disconnect', self.on_disconnect)
+        self.socketIO.on('reconnect', self.on_reconnect)
+        self.socketIO.on('session_response', self.on_session_response)
+        # self.socketIO.emit('session')
+        # self.socketIO.wait()
+    
     def run(self):
-        retry_result = True
-        while retry_result:
-            if self.send_type == SEND_TYPE_PREDICT:
-                self.sequence += 1
-                retry_result = self.retry_connect(self.send_predict, self.send_predict_done)
-            else:
-                retry_result = self.retry_connect(self.send_train_data, self.send_train_data_done)
-                
+        self.socketIO.emit('session')
+        self.socketIO.wait()
+
+    def on_connect(self):
+        print('client say connect')
+
+    def on_reconnect(self):
+        print('client say connect')
+
+    def on_disconnect(self):
+        print('disconnect')
+
+    def on_session_response(self, new_id):
+        print('Get id = {}'.format(new_id ))
+        new_ns = '/' + str(new_id)  + '/rl_session'
+        self.connect_with_ns(new_ns)
+
+    def connect_with_ns(self,ns):
+        print('defins ns ={}'.format(ns))
+        new_env = self.socketIO.define(self.target_env_class, ns)
+        new_env.set_name(self.env_name)
+        # method_to_call = getattr(new_env, self.env_call_fun)
+        # result = method_to_call()
+
+if __name__ == '__main__':
+    # Client(EnvSpace) 
+    Client(Gridworld_EX)

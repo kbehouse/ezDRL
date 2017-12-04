@@ -13,7 +13,7 @@ RL:
     state_shape: !!python/tuple [2,]
     action_discrete: yes
     action_num: 4
-    train_run_steps: 1
+    train_multi_steps: no
 
 QLearning:
     LR: 0.1  # learning rate for actor (1e-4)

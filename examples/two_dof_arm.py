@@ -7,69 +7,34 @@
 
 import sys, os
 sys.path.append(os.path.abspath(os.path.dirname(__file__)+'/../'))
-from client import Client
+from client import Client, EnvSpace
 from envs.arm_env import ArmEnv
 import time
-MAX_EP_STEP = 300
-GLOBAL_EP = 0
 
-
-START_TIME = time.time()
-
-class TwoDofArm:
-    """ Init Client """
-    def __init__(self, client_id):
-        
-        self.done = True
-
+TRAIN_MODE = True
+class TwoDofArm(EnvSpace):
+    def env_init(self):
+        self.render = False
+        self.EP_MAXSTEP = 300
         self.env = ArmEnv(mode='hard')
-        self.env.reset()
-        
-        self.client = Client(client_id)
-        self.client.set_state(self.get_state)
-        self.client.set_train(self.train)
-        self.client.start()
+        self.state = self.env.reset()
+        self.send_state_get_action(self.state)
 
+    def on_predict_response(self, action):
+        next_state, reward, done, _ = self.env.step(action)
+        done = True if self.ep_use_step >= self.EP_MAXSTEP else done
+        self.send_train_get_action(self.state, action, reward, done, next_state)
+        self.state = next_state
+    
+        # print('self.env_name=',self.env_name)
+        if self.env_name =='Env-0':
+            self.env.render()   
+        if done:
+            self.state =  self.env.reset()
+            self.send_state_get_action(self.state)
 
-    def get_state(self):
-        # print('in State, self.done={}'.format(self.done))
-        if self.done:
-            self.done = False
-            self.ep_t = 0
-            self.ep_r = 0
-            self.next_state =  self.env.reset()
-
-        self.state = self.next_state
-        
-        return self.state
-
-    def train(self,action):
-        
-        self.next_state, self.reward, self.done, _  = self.env.step(action)
-
-        self.ep_t += 1
-        if self.ep_t == MAX_EP_STEP - 1: self.done = True
-
-        self.log_and_show()
-
-        return (self.reward, self.done, self.next_state)
-
-
-    def log_and_show(self):
-        global GLOBAL_EP, START_TIME
-        
-        self.ep_r += self.reward
-
-        if self.client.client_id == 'Client-0':
-            self.env.render()
-
-        if self.done:
-            use_secs = time.time() - START_TIME
-            time_str = '%3dh%3dm%3ds' % (use_secs/3600, (use_secs%3600)/60, use_secs % 60 )
-            print('%s -> EP:%4d, STEP:%3d, EP_R:%8.2f, T:%s' % (self.client.client_id,  GLOBAL_EP, self.ep_t, self.ep_r, time_str))
-                
-            GLOBAL_EP += 1
 
 if __name__ == '__main__':
     for i in range(4):
-        TwoDofArm('Client-%d' % i ) 
+        c = Client(TwoDofArm, env_name='Env-%d' % i)
+        c.start()

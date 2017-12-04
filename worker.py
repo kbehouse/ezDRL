@@ -1,144 +1,97 @@
-#
-#   Get raw picture and modify to 84*84 gray picture 
-#   Modify from ZMQ example (http://zguide.zeromq.org/py:spworker)
-#   
-#   Author:  Kartik, Chen  <kbehouse(at)gmail(dot)com>,
-#
-          
-import os
-from random import randint
-import time
-import zmq
-from threading import Thread
-from utility import *
-import cv2
+import os 
+from flask_socketio import Namespace, emit
 import numpy as np
+import cv2
+
+
 from config import cfg
 from DRL.Base import RL, DRL
 from DRL.A3C import A3C
 from DRL.TD import SARSA, QLearning
 
-BACKEND_ADR  = "tcp://%s:%d" % (cfg['conn']['server_ip'],cfg['conn']['server_backend_port'])
+#------ Dynamic Namespce Predict -------#
+class Worker(Namespace):
+    def __init__(self,ns, client_id, sess = None, main_net = None ):
+        super(Worker, self).__init__(ns)
+        self.client_id = client_id
 
-class Worker(Thread):
-    """ Init Client """
-    def __init__(self, worker_id, sess = None, main_net = None ):
-        Thread.__init__(self)
         
-        self.identity = worker_id # u"Worker-{}".format(worker_id).encode("ascii")
-        # Connect Init
-        self.context = zmq.Context(1)
-        self.worker = self.context.socket(zmq.REQ)
-        self.worker.setsockopt(zmq.IDENTITY, self.identity)
-        self.worker.connect(BACKEND_ADR)
-
-        # RL Init
+        # RL or DRL Init
         self.nA = cfg['RL']['action_num']
         method_class = globals()[cfg['RL']['method'] ]
 
-
-        # DL Init
         if issubclass(method_class, DRL):
+            '''Use DRL'''
             self.sess = sess
-            self.RL = method_class(self.sess, worker_id, main_net)
+            self.RL = method_class(self.sess, self.client_id, main_net)
         elif issubclass(method_class, RL):
+            '''Use RL'''
             self.RL = method_class()
             pass
         else:
             print('E: Worker::__init__() say error method name={}'.format(cfg['RL']['method'] ))
 
-        self.random = np.random.RandomState(1)
-
-        print "I: (%s) worker ready" % self.identity
-
-    def close_connect(self):
-        # print('in {} close connect'.format(self.identity) )
-        try:
-            self.worker.setsockopt(zmq.LINGER, 0)
-            self.worker.close()
-            self.context.term()
-        except Exception as e :
-            print('E: Get Worker::close_connect() exception -> {}, e.errno={}'.format(e,str(e.errno)))
+        print("{}'s Worker Ready!".format(self.client_id))
 
 
-    # def __del__(self):
-    #     print('in del____')
+    def on_connect(self):
+        print('{} Worker Connect'.format(self.client_id))
+        self.data_dir = 'data_pool/{}/'.format(self.client_id)
+        if not os.path.isdir(self.data_dir):
+            os.mkdir(self.data_dir)
 
-    def policy(self, s):
-        ones = np.ones(self.nA)
-        p = ones / self.nA
-        return p
+        self.state_count = 0
+
+    def on_disconnect(self):
+        print('{} Worker Disconnect'.format(self.client_id))
+
+    
+    def on_predict(self, data):
+        action = self.predict(data['state'])
+        action = action.tolist() if type(action) == np.ndarray else action
+        emit('predict_response', action)
+        # self.save_data(state)
+
+    def on_train(self, data):
+        self.train(data['state'],data['action'],data['reward'],data['next_state'],data['done'])
+
+    def on_train_and_predict(self, data):
+        self.train(data['state'],data['action'],data['reward'],data['next_state'],data['done'])
+        if not data['done']:
+            action = self.predict(data['next_state'])
+            action = action.tolist() if type(action) == np.ndarray else action
+
+            emit('predict_response', action)
 
     def predict(self, state):
+        # print("I: predict() state.shape: {}, type(state)= {} ".format(np.shape(state), type(state)) )
+        state = np.array(state)
         return self.RL.choose_action(state)
 
-    def train(self,tag_id, states, actions, rewards, next_state, done ):
+    def train(self, states, actions, rewards, next_state, done ):
         # print('I: train get states.shape={}, type(states)={}'.format(np.shape(states), type(states)))
         # print('I: train get actions.shape={}, type(actions)={}'.format(np.shape(actions), type(actions)))
         # print('I: train get rewards.shape={}, type(rewards)={}'.format(np.shape(rewards), type(rewards)))
         # print('I: train get done = {}'.format(done)) 
-       
+
+        # more detail
+        # print('I: train get states.shape={}, type(states)={}, states={}'.format(np.shape(states), type(states),states))
+        # print('I: train get actions.shape={}, type(actions)={}, actions={}'.format(np.shape(actions), type(actions), actions))
+        # print('I: train get rewards.shape={}, type(rewards)={}, rewards={}'.format(np.shape(rewards), type(rewards), rewards))
+        # print('I: train get done = {}, type(done)={}'.format(done,type(done)) )
+        states = np.array(states) if type(states) == list else states
+        actions = np.array(actions) if type(actions) == list else actions
+        next_state = np.array(next_state) if type(next_state) == list else next_state
+
         self.RL.train(states, actions, rewards, next_state, done)
         
-    def run(self):
-        self.worker.send(LRU_READY)
-
-        cycles = 0
-        while True:
-            # reda data and blocking
-            try:
-                client_id, _ , msg   = self.worker.recv_multipart()
-            except Exception as e :
-                print('E: Get self.worker.recv_multipart() exception ->  {}'.format(e))
-                self.close_connect()
-                break
-                
-            if not msg:
-                print('E: Worker say  msg is None')
-                break
-            # unpack msg
-            load = loads(msg)
-            seq = load[0]
-            cmd = load[1]
-
-            # print("I: [{}]: Get [{}]'s cmd:({}) , seq:({}) ".format(self.identity, client_id, cmd, seq) )
-
-            if PREDICT_CMD == cmd:
-                ''' Predict Section'''
-                state = load[2]
-                # print("I: [{}]: Get [{}]'s cmd:({}) , seq:({}), state.shape: {}, type(state): {} ".\
-                #     format(self.identity, client_id, cmd, seq, np.shape(state), type(state)) )
-
-                # print("I: state.shape: {}, type(state)= {} ".\
-                #     format(np.shape(state), type(state)) )
-
-
-                actions = self.predict(state)
-                msg = dumps( (seq, actions) )
-                self.worker.send_multipart([client_id, _ , msg ])
-
-                
-            elif TRAIN_CMD == cmd:
-                ''' Train Section'''
-                state  = load[2]
-                action = load[3]
-                reward = load[4]
-                next_state = load[5]
-                done   = load[6]
-
-                # print("I: [{}]: Get [{}]'s cmd:({}) , seq:({}), state.shape: {}, reward: {}, action: {} ".\
-                #     format(self.identity, client_id, cmd, seq, np.shape(state), reward, action) )
-
-                # print("I: [{}]: seq:({}) reward.shape: {}, action.shape: {} ".\
-                #     format(self.identity, seq, np.shape(reward), np.shape(action)) )
-
-                tag_id = "{}+{}".format(client_id, seq)
-                self.train(tag_id, state, action ,reward, next_state, done )
-
-                ''' Send Finish Train'''
-                msg = dumps( seq )
-                self.worker.send_multipart([client_id, _ , msg ])
-
-               
-
-            
+    def save_data(self, data):
+        state = data['state']
+        state = np.array(state)
+        print('train state.shape={}'.format(state.shape) )
+        # pic_path =  train_dir + tag_id +'+r'+ str(reward) + '_a'+  str(action) + '_0.'+ self.identity +'.jpg'
+        self.state_count += 1
+        pic_path = '%s/%06d.jpg' % (self.data_dir, self.state_count)
+        # cv2.imwrite(pic_path, state[:,:,0])
+        print('pic_path = %s' % self.data_dir)
+        cv2.imwrite(pic_path, state)

@@ -13,7 +13,8 @@ RL:
     state_shape: !!python/tuple [7,]
     action_discrete: no         # no -> provide action_bound for continuous
     action_num: 2
-    action_bound: [-1,1]        
+    action_bound: [-1,1]
+    train_multi_steps: yes        
     train_run_steps: 5
 
 A3C:

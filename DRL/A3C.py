@@ -72,6 +72,15 @@ class A3C(DRL):
                     self.update_a_op = self.OPT_A.apply_gradients(zip(self.a_grads, globalAC.a_params))
                     self.update_c_op = self.OPT_C.apply_gradients(zip(self.c_grads, globalAC.c_params))
 
+            print('----------tf.report_uninitialized_variables()----------')
+            print(self.sess.run(tf.report_uninitialized_variables()))
+            # tf.variables_initializer(
+            #     [v for v in tf.global_variables() if v.name.split(':')[0] in set(sess.run(tf.report_uninitialized_variables()))
+            # ])
+            self.sess.run(tf.global_variables_initializer())
+
+            print('--again--------tf.report_uninitialized_variables()----------')
+
     def _build_net(self):
         w_init = tf.contrib.layers.xavier_initializer()
         with tf.variable_scope('actor'):
@@ -102,6 +111,13 @@ class A3C(DRL):
         else:
             v_s_ = self.sess.run(self.v, {self.s: next_state[np.newaxis, :]})[0, 0]
         buffer_v_target = []
+
+        # if type(rewards) == list: 
+        #     rewards = np.array(rewards)
+        # elif type(rewards) != np.ndarray: 
+        #     ''' maybe flost, int'''
+        #     rewards = np.array([rewards])
+
         for r in rewards[::-1]:    # reverse buffer r
             v_s_ = r + cfg['A3C']['gamma'] * v_s_
             buffer_v_target.append(v_s_)

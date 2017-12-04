@@ -3,6 +3,7 @@
 ## Test for client copy
 train/
 backup/
+data_pool/
 
 
 # other

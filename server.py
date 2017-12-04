@@ -1,32 +1,52 @@
-#
-#   Get raw picture and modify to 84*84 gray picture 
-#   Modify from ZMQ example (http://zguide.zeromq.org/py:spqueue)
-#   
-#   Author:  Kartik, Chen  <kbehouse(at)gmail(dot)com>,
-#          
+from flask import Flask
+from flask_restful import  Api
+from flask_socketio import SocketIO, send, emit, Namespace
 
-import sys
-import zmq
-import multiprocessing
-
-from worker import Worker
-from utility import *
+import os
+import shortuuid
 
 from config import cfg
+from worker import Worker
+from dashboard import Dashboard
+
 from DRL.Base import RL,DRL
 from DRL.A3C import A3C
 from DRL.TD import SARSA, QLearning
 
-method_class = globals()[cfg['RL']['method'] ]
-if issubclass(method_class, DRL): 
+if issubclass(globals()[cfg['RL']['method'] ], DRL): 
     import tensorflow as tf
+#-------set log level--------#
+# import logging
+# log = logging.getLogger('werkzeug')
+# log.setLevel(logging.ERROR)
 
 
-FRONTEND_ADR = "tcp://*:%d" % cfg['conn']['server_frontend_port']
-BACKEND_ADR  = "tcp://*:%d" % cfg['conn']['server_backend_port']
+#------ Dynamic Namespce Predict -------#
+class SocketServer(Namespace):
+    def __init__(self, namespace = '/',  sock = None):
+        super(SocketServer, self).__init__(namespace=namespace)
+        self.socketio = sock
+        self.init_method()
 
-class Server:
-    def __init__(self):
+    #------- for connect and get id------#
+    def on_connect(self):
+        print('Server in on_connect()')
+
+    def on_session(self):
+        print('Server in on_session()')
+        new_id = shortuuid.uuid()
+        ns = '/' + new_id + '/rl_session' 
+
+        print('Build server RL Session socket withs ns: {}'.format(ns))
+        if self.use_DRL:
+            self.socketio.on_namespace(Worker(ns, new_id, self.sess, self.main_net) )
+        else:
+            self.socketio.on_namespace(Worker(ns, new_id) )
+        
+        emit('session_response', new_id)
+    
+            
+    def init_method(self):
         print('I: Use {} Method'.format(cfg['RL']['method']))
         method_class = globals()[cfg['RL']['method'] ]
         # DL Init
@@ -41,52 +61,12 @@ class Server:
 
         self.use_DRL = True if issubclass(method_class, DRL) else False
 
-        # # DL Init
-        # self.sess = tf.Session()
-        # self.RL_method = cfg['RL']['method']
-        # self.main_net = A3C(self.sess, cfg[self.RL_method ]['main_net_scope'])  
-
-        self.worker_init()
-        self.connect_init()
-
+        # print('self.use_DRL = {}'.format(self.use_DRL))
         # DL Init 2
         if self.use_DRL:
-            COORD = tf.train.Coordinator()
+            # COORD = tf.train.Coordinator()
             self.sess.run(tf.global_variables_initializer())
-
             self.check_output_graph()
-
-    def connect_init(self):
-        # Connet Init
-        self.context = zmq.Context(1)
-
-        self.frontend = self.context.socket(zmq.ROUTER) # ROUTER
-        self.backend  = self.context.socket(zmq.ROUTER) # ROUTER
-        self.frontend.bind(FRONTEND_ADR) # For clients
-        self.backend.bind(BACKEND_ADR)  # For workers
-
-        self.poll_workers = zmq.Poller()
-        self.poll_workers.register(self.backend, zmq.POLLIN)
-
-        self.poll_both = zmq.Poller()
-        self.poll_both.register(self.frontend, zmq.POLLIN)
-        self.poll_both.register(self.backend, zmq.POLLIN)
-
-
-    def worker_init(self):
-        # 'Can' worker list
-        self.workers = []
-        # 'All' worker list
-        self.worker_list = []
-
-        for i in range(cfg['conn']['server_worker_num']):
-            worker_id = u"Worker-{}".format(i).encode("ascii")
-            if self.use_DRL:
-                w = Worker(worker_id, self.sess, self.main_net)
-            else:
-                w = Worker(worker_id)
-            self.worker_list.append(w)
-
 
     def check_output_graph(self):
         if 'log' in cfg and cfg['log']['output_tf']:
@@ -97,63 +77,22 @@ class Server:
             tf.summary.FileWriter(log_dir, self.sess.graph)
 
 
-    def start(self): 
-        for w in self.worker_list:
-            w.start()
-
-        while True:
-            try:
-                if self.workers:
-                    self.socks = dict(self.poll_both.poll())
-                else:
-                    self.socks = dict(self.poll_workers.poll())
-
-            except KeyboardInterrupt:
-            #This won't catch KeyboardInterupt
-                print('KeyboardInterrupt Capture')
-                # stop_all = [w.close_connect() for w in worker_list]
-                for w in self.worker_list:
-                    w.close_connect()
-
-                self.poll_both.unregister(self.frontend)
-                self.poll_both.unregister(self.backend)
-                self.poll_workers.unregister(self.backend)
-                
-                self.frontend.close()
-                self.backend.close()
-                self.context.destroy(linger=0)
-                
-                self.context.term()
-            
-                break
-            
-
-            # Handle worker activity on backend
-            if self.socks.get(self.backend) == zmq.POLLIN:
-                # Use worker address for LRU routing
-                msg = self.backend.recv_multipart()
-                if not msg:
-                    break
-                address = msg[0]
-                # print('Append address: ' + str(address))
-                self.workers.append(address)
-
-                # Everything after the second (delimiter) frame is reply
-                reply = msg[2:]
-
-                # Forward message to client if it's not a READY
-                if reply[0] != LRU_READY:
-                    self.frontend.send_multipart(reply)
-
-            if self.socks.get(self.frontend) == zmq.POLLIN:
-                #  Get client request, route to first available worker
-                msg = self.frontend.recv_multipart()
-                request = [self.workers.pop(0), ''] + msg
-                self.backend.send_multipart(request)
-
-
+#------ check data_pool/ exist -------#
+if not os.path.isdir('data_pool'):
+    os.mkdir('data_pool')
+    
 
 if __name__ == '__main__':
+    #-------Flask Init--------#
+    app = Flask(__name__, static_folder='static', static_url_path='')
+    api = Api(app)
+    # you can try on http://localhost:5000/dashboard
+    api.add_resource(Dashboard,'/dashboard')
 
-    s = Server()
-    s.start()
+    #init socketio 
+    socketio = SocketIO(app)
+    socketio.on_namespace(SocketServer(namespace = '/',  sock =socketio))
+    socketio.run(app, host='0.0.0.0')
+
+
+    

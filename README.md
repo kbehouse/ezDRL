@@ -26,7 +26,28 @@ python two_dof_arm.py
 
 ## Version Note 
 
-### v0.05 (latest)
+### v0.06 (latest)
+Implementation Socket.io and replacing ZMQ   
+(No ZMQ in the framework now)
+Note: Every client use Socket.io link to a new uuid space ->  /[uuid]/
+All following app  use Socket.io
+1. Run two_dof_arm with A3C
+```
+python server.py               config/two_dof_arm_A3C.yaml
+python examples/two_dof_arm.py config/two_dof_arm_A3C.yaml
+```
+2. Run Gridworld With SARSA
+```
+python server.py config/gridworld_SARSA.yaml
+python examples/gridworld.py config/gridworld_SARSA.yaml
+```
+3. Run Gridworld With QLearning
+```
+python server.py config/gridworld_QLearning.yaml
+python examples/gridworld.py config/gridworld_QLearning.yaml
+```
+
+### v0.05 
 1. A3C (continuous) Can Run!!
 2. Run two_dof_arm
 ```
