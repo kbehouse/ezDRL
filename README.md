@@ -27,7 +27,7 @@ python two_dof_arm.py
 ## Version Note 
 
 ### v0.06 (latest)
-Implementation Socket.io and replacing ZMQ   
+Implementation Socket.io which replacing ZMQ   
 (No ZMQ in the framework now)
 Note: Every client use Socket.io link to a new uuid space ->  /[uuid]/
 
