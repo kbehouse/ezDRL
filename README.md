@@ -1,4 +1,4 @@
-# Eazy DRL (ezDRL)
+# Easy DRL (ezDRL)
 
 ## Install
 
@@ -30,7 +30,8 @@ python two_dof_arm.py
 Implementation Socket.io and replacing ZMQ   
 (No ZMQ in the framework now)
 Note: Every client use Socket.io link to a new uuid space ->  /[uuid]/
-All following app  use Socket.io
+
+All following app use Socket.io
 1. Run two_dof_arm with A3C
 ```
 python server.py               config/two_dof_arm_A3C.yaml
