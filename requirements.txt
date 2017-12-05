@@ -6,3 +6,4 @@ flask_socketio
 gevent-websocket
 shortuuid
 tqdm>4.11.1
+socketIO_client

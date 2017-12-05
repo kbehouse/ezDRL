@@ -8,6 +8,9 @@
 
 ```
 pip install -r requirements.txt
+
+# if fail, try to use sudo 
+sudo pip install -r requirements.txt
 ```
 
 ## Run
@@ -15,13 +18,13 @@ pip install -r requirements.txt
 1. Run the Server 
 
 ```
-python server.py
+python server.py config/gridworld_SARSA.yaml
 ```
 
 2. Run the two_dof_arm (You could update this to your need) 
 
 ```
-python two_dof_arm.py
+python examples/gridworld.py config/gridworld_SARSA.yaml
 ```
 
 ## Version Note 
