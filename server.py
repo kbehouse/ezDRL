@@ -10,6 +10,9 @@ from worker import Worker
 from dashboard import Dashboard
 
 from DRL.Base import RL,DRL
+from DRL.NatureDQN import NatureDQN
+from DRL.DoubleDQN import DoubleDQN
+from DRL.DuelingDQN import DuelingDQN
 from DRL.A3C import A3C
 from DRL.TD import SARSA, QLearning
 
