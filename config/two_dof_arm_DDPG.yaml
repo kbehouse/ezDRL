@@ -1,0 +1,33 @@
+conn: 
+    server_worker_num: &ref_server_worker_num 1
+    server_ip: 127.0.0.1
+    server_frontend_port: 5555
+    server_backend_port: 5556
+    client_num: 1
+    client_retries: 3
+    client_timeout: 2500   #ms
+
+RL:
+    method: 'DDPG'
+    state_frames: 1
+    state_shape: !!python/tuple [7,]
+    action_discrete: yes         # no -> provide action_bound for continuous
+    action_num: 2
+    action_bound: [-1,1]
+    train_multi_steps: no        
+    train_run_steps: 5
+
+DDPG:
+    LR_A: 0.0001  # learning rate for actor (1e-4)
+    LR_C: 0.0001  # learning rate for critic
+    GAMMA: 0.9  # reward discount
+    UPDATE_NN_STEP: 1000
+    MENORY_SIZE: 5000
+    BATCH_SIZE: 16
+    main_net_scope: 'Main_Net'
+    worker_num: *ref_server_worker_num # refer to server_worker_num
+
+log:
+    output_tf: yes
+    output_tf_dir: './log'
+    
