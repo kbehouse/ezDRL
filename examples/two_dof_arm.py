@@ -2,7 +2,12 @@
 #   python server.py               config/two_dof_arm_A3C.yaml
 #   python examples/two_dof_arm.py config/two_dof_arm_A3C.yaml
 #   
-# Author:  Kartik,Chen  <kbehouse(at)gmail(dot)com>
+# Run with DDPG
+#   python server.py               config/two_dof_arm_DDPG.yaml
+#   python examples/two_dof_arm.py config/two_dof_arm_DDPG.yaml
+#   
+#   Author:  Kartik,Chen  <kbehouse(at)gmail(dot)com>
+#   Author:  Shengru, Xiao  <stemsgrpy(at)gmail(dot)com>
 #          
 
 import sys, os
@@ -10,6 +15,9 @@ sys.path.append(os.path.abspath(os.path.dirname(__file__)+'/../'))
 from client import Client, EnvSpace
 from envs.arm_env import ArmEnv
 import time
+
+import numpy as np
+
 
 TRAIN_MODE = True
 class TwoDofArm(EnvSpace):
@@ -33,8 +41,12 @@ class TwoDofArm(EnvSpace):
             self.state =  self.env.reset()
             self.send_state_get_action(self.state)
 
+#if __name__ == '__main__':
+#    for i in range(4):
+#        c = Client(TwoDofArm, env_name='Env-%d' % i)
+#        c.start()
 
 if __name__ == '__main__':
-    for i in range(4):
-        c = Client(TwoDofArm, env_name='Env-%d' % i)
-        c.start()
+    c = Client(TwoDofArm,'Env-0')
+    c.start()
+            
