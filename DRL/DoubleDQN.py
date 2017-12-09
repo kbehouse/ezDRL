@@ -4,7 +4,7 @@
 #   Get gary image(84x84) from server (use worker)  
 #   Save the gray image(84x84)
 #   
-#   Author:  Shengru, Xiao  <stemsgrpy(at)gmail(dot)com>,
+#   Author:  Shengru, Xiao  <stemsgrpy(at)gmail(dot)com>
 #      
 
 import tensorflow as tf
