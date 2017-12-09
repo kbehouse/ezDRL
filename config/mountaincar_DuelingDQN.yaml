@@ -1,0 +1,30 @@
+conn: 
+    server_worker_num: &ref_server_worker_num 1
+    server_ip: 127.0.0.1
+    server_frontend_port: 5555
+    server_backend_port: 5556
+    client_num: 1
+    client_retries: 3
+    client_timeout: 2500   #ms
+
+RL:
+    method: 'DuelingDQN'
+    state_frames: 1
+    state_shape: !!python/tuple [2,]
+    action_discrete: yes
+    action_num: 3
+    train_multi_steps: no
+    train_run_steps: 10
+
+DuelingDQN:
+    LR: 0.001  # learning rate
+    GAMMA: 0.9  # reward discount
+    E_GREEDY: 0.9
+    UPDATE_NN_STEP: 200
+    MENORY_SIZE: 2000
+    BATCH_SIZE: 32
+    main_net_scope: 'Main_Net'
+
+log:
+    output_tf: yes
+    output_tf_dir: './log'
